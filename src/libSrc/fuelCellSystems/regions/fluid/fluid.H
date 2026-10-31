@@ -70,6 +70,13 @@ protected:
         //- phase type
         autoPtr<phaseSystem> phases_;
 
+        //- Isothermal mode (controlDict solveEnergy false): hold the
+        //- gas temperature at the mapped cell temperature
+        bool isothermal_;
+
+        //- Cell temperature mapped in mapFromCell (isothermal mode only)
+        autoPtr<volScalarField> TFixed_;
+
 
 public:
         TypeName("fluid");

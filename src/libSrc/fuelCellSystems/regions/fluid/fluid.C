@@ -57,13 +57,24 @@ Foam::regionTypes::fluid::fluid
 :
     regionType(mesh, regionName),
 
-    mesh_(mesh)
+    mesh_(mesh),
+
+    isothermal_
+    (
+        !mesh.time().controlDict().lookupOrDefault<bool>("solveEnergy", true)
+    )
 {
     //- correct fluid, solve the mass and momentum equations, singlePhase and twoPhase.
     phases_ = phaseSystem::New
     (
         *this
     );
+
+    if (isothermal_)
+    {
+        Info<< "Fluid region " << name() << ": solveEnergy false,"
+            << " gas temperature held at the cell temperature" << nl << endl;
+    }
 }
 
 
@@ -87,7 +98,44 @@ void Foam::regionTypes::fluid::setRDeltaT()
 void Foam::regionTypes::fluid::correct()
 {
     phases_->correctEnergyTransport();
+
     phases_->correctThermo();
+
+    if (isothermal_ && TFixed_.valid())
+    {
+        //- correctThermo() updates the reaction, then renormalises the
+        //- composition, then derives T from he. The composition has changed
+        //- since he was set, so that T drifts. Re-set T and he at the final
+        //- composition and update the thermo once more: the inversion starts
+        //- from the held T, so T stays at the cell temperature while the
+        //- composition-dependent properties are updated.
+        phaseModel& phase = phases_->phases()[phases_->continuous()];
+        rhoThermo& thermo = phase.thermoRef();
+
+        const scalar maxDrift = gMax
+        (
+            mag(thermo.T().primitiveField() - TFixed_().primitiveField())()
+        );
+
+        thermo.T() = TFixed_();
+        volScalarField& he = thermo.he();
+        he = thermo.he(thermo.p(), TFixed_()).ref();
+        he.correctBoundaryConditions();
+        thermo.correct();
+
+        Info<< name() << ": isothermal gas T, drift before reset = "
+            << maxDrift << ", max |T - T_cell| = "
+            << gMax
+               (
+                   mag
+                   (
+                       thermo.T().primitiveField()
+                     - TFixed_().primitiveField()
+                   )()
+               )
+            << endl;
+    }
+
     phases_->correct();
 }
 
@@ -354,6 +402,14 @@ void Foam::regionTypes::fluid::mapFromCell
     he = phase.thermoRef().he(p, T0).ref();
 
     he.correctBoundaryConditions();
+
+    if (isothermal_)
+    {
+        //- Hold this temperature for the rest of the time step and make the
+        //- thermo T consistent now, before the first correct()
+        TFixed_.reset(new volScalarField("TFixed", T0));
+        phase.thermoRef().T() = T0;
+    }
 }
 
 // ************************************************************************* //
