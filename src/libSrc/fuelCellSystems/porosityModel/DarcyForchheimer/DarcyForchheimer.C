@@ -63,7 +63,8 @@ Foam::porousZones::DarcyForchheimer::DarcyForchheimer
     alphaName_(coeffs_.lookupOrDefault<word>("alpha", "alpha")),
     theta_(coeffs_.lookupOrDefault<scalar>("theta", 0.0)),
     sigma_(coeffs_.lookupOrDefault<scalar>("sigma", 0.0)),
-    alphaMin_(coeffs_.lookupOrDefault<scalar>("alphaMin", 1.0e-6))
+    alphaMin_(coeffs_.lookupOrDefault<scalar>("alphaMin", 1.0e-6)),
+    fullyImplicit_(coeffs_.getOrDefault<Switch>("fullyImplicit", false))
 {
     adjustNegativeResistance(dXYZ_);
     adjustNegativeResistance(fXYZ_);
@@ -73,6 +74,12 @@ Foam::porousZones::DarcyForchheimer::DarcyForchheimer
         FatalErrorInFunction
             << "alphaMin must lie in (0, 1], got " << alphaMin_
             << exit(FatalError);
+    }
+
+    if (fullyImplicit_)
+    {
+        Info<< "DarcyForchheimer " << name
+            << ": fullyImplicit (diagonal tr(Cd)/3)" << endl;
     }
 
     calcTranformModelData();

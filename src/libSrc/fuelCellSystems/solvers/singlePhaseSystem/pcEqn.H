@@ -42,7 +42,16 @@ constrainPressure(p_rgh_, rho, U, phiHbyA, rhorAtU, MRF_);
 
 {
     phiHbyA += fvc::interpolate(rho*(rAtU - rAU))*fvc::snGrad(p_rgh_)*mesh.magSf();
-    HbyA -= (rAU - rAtU)*fvc::grad(p_rgh_);
+    if (fluxReconstructU)
+    {
+        HbyA -=
+            (rAU - rAtU)
+           *fvc::reconstruct(fvc::snGrad(p_rgh_)*mesh.magSf());
+    }
+    else
+    {
+        HbyA -= (rAU - rAtU)*fvc::grad(p_rgh_);
+    }
 
     fvScalarMatrix pDDtEqn
     (
@@ -77,7 +86,14 @@ constrainPressure(p_rgh_, rho, U, phiHbyA, rhorAtU, MRF_);
 // Explicitly relax pressure for momentum corrector
 p_rgh_.relax();
 
-U = HbyA - rAtU*fvc::grad(p_rgh_);
+if (fluxReconstructU)
+{
+    U = HbyA - rAtU*fvc::reconstruct(fvc::snGrad(p_rgh_)*mesh.magSf());
+}
+else
+{
+    U = HbyA - rAtU*fvc::grad(p_rgh_);
+}
 U.correctBoundaryConditions();
 fvOptions.correct(U);
 

@@ -63,7 +63,14 @@ constrainPressure(p_rgh_, rho, U, phiHbyA, rhorAUf, MRF_);
 
 p_rgh_.relax();
 
-U = HbyA - rAU*fvc::grad(p_rgh_);
+if (fluxReconstructU)
+{
+    U = HbyA - rAU*fvc::reconstruct(fvc::snGrad(p_rgh_)*mesh.magSf());
+}
+else
+{
+    U = HbyA - rAU*fvc::grad(p_rgh_);
+}
 U.correctBoundaryConditions();
 fvOptions.correct(U);
 

@@ -87,6 +87,19 @@ void Foam::singlePhaseSystem::solve()
         pimple_.dict().lookupOrDefault<Switch>("Y", true)
     );
 
+    // Optional (default false): rebuild the cell-centred pressure-gradient
+    // force from face-normal gradients, fvc::reconstruct(snGrad(p_rgh)*|Sf|),
+    // instead of the Gauss cell gradient, in the U update of pEqn.H/pcEqn.H.
+    const Switch fluxReconstructU
+    (
+        pimple_.dict().getOrDefault<Switch>("fluxReconstructU", false)
+    );
+
+    if (fluxReconstructU)
+    {
+        Info<< mesh.name() << ": fluxReconstructU" << endl;
+    }
+
     // --- Pressure-velocity PIMPLE corrector loop
     while (pimple_.loop())
     {

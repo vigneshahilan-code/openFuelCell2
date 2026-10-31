@@ -113,6 +113,13 @@ class DarcyForchheimer
         //  absorbing state the phase can never leave.
         scalar alphaMin_;
 
+        //- Treat the resistance fully implicitly (optional, default false).
+        //  Default: tr(Cd) on the diagonal and -(Cd - I*tr(Cd)) & U as an
+        //  explicit source, i.e. 3x over-implicit for an isotropic D.
+        //  With fullyImplicit: tr(Cd)/3 on the diagonal, which is exact for
+        //  an isotropic D; any anisotropic remainder stays explicit.
+        Switch fullyImplicit_;
+
 
     // Private Member Functions
 

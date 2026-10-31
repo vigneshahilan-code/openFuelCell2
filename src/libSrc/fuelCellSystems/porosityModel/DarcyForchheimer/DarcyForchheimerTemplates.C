@@ -50,7 +50,7 @@ void Foam::porousZones::DarcyForchheimer::apply
             const tensor Cd =
                 mu[cellI]*dZones[j] + (rho[cellI]*mag(U[cellI]))*fZones[j];
 
-            const scalar isoCd = tr(Cd);
+            const scalar isoCd = fullyImplicit_ ? tr(Cd)/3.0 : tr(Cd);
 
             Udiag[cellI] += V[cellI]*isoCd;
             Usource[cellI] -= V[cellI]*((Cd - I*isoCd) & U[cellI]);
