@@ -86,6 +86,18 @@ int main(int argc, char *argv[])
             << exit(FatalIOError);
     }
 
+    // Read once at start-up (not run-time modifiable). Default true keeps
+    // the upstream behaviour; false skips the energy equation so T stays at
+    // its initial field (isothermal runs).
+    const bool solveEnergy =
+        runTime.controlDict().lookupOrDefault<bool>("solveEnergy", true);
+
+    if (!solveEnergy)
+    {
+        Info<< "solveEnergy false: energy equation not solved,"
+            << " T held at its initial field\n" << endl;
+    }
+
     fuelCell.mapToCell();
 
     while (runTime.run())
@@ -125,7 +137,18 @@ int main(int argc, char *argv[])
 
         fuelCell.mapToCell();
 
-        #include "EEqns.H"
+        if (solveEnergy)
+        {
+            #include "EEqns.H"
+        }
+        else
+        {
+            Info<< "T (not solved)"
+                << ": min = " << Foam::min(TCell.primitiveField())
+                << ", mean = " << Foam::average(TCell.primitiveField())
+                << ", max = " << Foam::max(TCell.primitiveField())
+                << endl;
+        }
 
         runTime.write();
 
