@@ -36,6 +36,21 @@ Description
         j = j_0 \prod_i\left(\frac{p_i}{p_{ref}}\right)^\ksi (1 - s)^\gamma \eta
     \f]
 
+    Optional Arrhenius exchange current (both keys or neither):
+    \table
+        Property | Description                        | Required | Default
+        R0       | Pre-exponential resistance [Ohm m3] | no       | -
+        Ea       | Activation energy [J/mol]          | no       | -
+    \endtable
+
+    When given, j0 is evaluated per cell from the local temperature,
+    \f[
+        j_0 = \frac{1}{R_0 \exp(E_a/(R T))}
+    \f]
+    and the j0 entry is ignored (it is still read by the base class).
+    jPrime and jSource use the same local j0. The temperature derivative
+    of j0 is not included in dQdotdT.
+
     Read more:
     \vartable
         Chang, Hung‐Chi, and George Jaffé. "Polarization in electrolytic solutions.
@@ -70,6 +85,16 @@ class ChangJaffe
 :
     public ActivationOverpotentialModel<Thermo>
 {
+    // Private data
+
+        //- Arrhenius j0 active (R0 and Ea given)
+        Switch arrhenius_;
+
+        //- Pre-exponential resistance [Ohm m3]
+        scalar R0_;
+
+        //- Activation energy [J/mol]
+        scalar Ea_;
 
 public:
     //- Runtime type information

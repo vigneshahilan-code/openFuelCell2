@@ -25,6 +25,7 @@ License
 
 #include "ChangJaffe.H"
 #include "phaseModel.H"
+#include "physicoChemicalConstants.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -35,8 +36,27 @@ Foam::activationOverpotentialModels::ChangJaffe<Thermo>::ChangJaffe
     const dictionary& dict
 )
 :
-    ActivationOverpotentialModel<Thermo>(phase, dict)
-{}
+    ActivationOverpotentialModel<Thermo>(phase, dict),
+    arrhenius_(dict.found("R0") || dict.found("Ea")),
+    R0_(arrhenius_ ? dict.get<scalar>("R0") : 0),
+    Ea_(arrhenius_ ? dict.get<scalar>("Ea") : 0)
+{
+    if (arrhenius_)
+    {
+        if (R0_ <= 0)
+        {
+            FatalIOErrorInFunction(dict)
+                << "R0 must be positive, got " << R0_
+                << exit(FatalIOError);
+        }
+
+        Info<< "ChangJaffe at " << this->zoneName_
+            << ": Arrhenius j0 = 1/(R0*exp(Ea/(R*T))), R0 = " << R0_
+            << " Ohm m3, Ea = " << Ea_ << " J/mol, R = "
+            << constant::physicoChemical::R.value()
+            << " J/(mol K); j0 entry ignored" << endl;
+    }
+}
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
@@ -151,7 +171,15 @@ void Foam::activationOverpotentialModels::ChangJaffe<Thermo>::correct()
     scalar n = this->nernst_->rxnList()["e"];
     scalar sign = n/mag(n);
     scalar relax = this->relax();
-    const scalar j0 = this->j0().value();
+    const scalar j0Const = this->j0().value();
+
+    //- Local temperature and gas constant for the Arrhenius j0
+    const scalarField& T = this->phase_.thermo().T();
+    const scalar R = constant::physicoChemical::R.value();
+    scalar j0Min(GREAT);
+    scalar j0Max(-GREAT);
+    scalar TMin(GREAT);
+    scalar TMax(-GREAT);
 
     //- The total current: volume averaged
     scalar Rj(0.0);
@@ -162,6 +190,18 @@ void Foam::activationOverpotentialModels::ChangJaffe<Thermo>::correct()
         label fluidId = cells[cellI];
         label electronId = electronPhase.cellMap()[fluidPhase.cellMapIO()[fluidId]];
         label ionId = ionPhase.cellMap()[fluidPhase.cellMapIO()[fluidId]];
+
+        //- Exchange current: constant, or Arrhenius in the local T.
+        //- jPrime and jSource below use this same j0.
+        scalar j0 = j0Const;
+        if (arrhenius_)
+        {
+            j0 = 1.0/(R0_*Foam::exp(Ea_/(R*T[fluidId])));
+            j0Min = Foam::min(j0Min, j0);
+            j0Max = Foam::max(j0Max, j0);
+            TMin = Foam::min(TMin, T[fluidId]);
+            TMax = Foam::max(TMax, T[fluidId]);
+        }
 
         //- activation overpotential
         eta[fluidId] = 
@@ -192,6 +232,20 @@ void Foam::activationOverpotentialModels::ChangJaffe<Thermo>::correct()
     }
 
     reduce(Rj, sumOp<scalar>());
+
+    if (arrhenius_)
+    {
+        reduce(j0Min, minOp<scalar>());
+        reduce(j0Max, maxOp<scalar>());
+        reduce(TMin, minOp<scalar>());
+        reduce(TMax, maxOp<scalar>());
+
+        const int oldPrecision = Sout.precision(10);
+        Info<< "Arrhenius j0 at " << this->zoneName_
+            << ": min = " << j0Min << ", max = " << j0Max
+            << " (T min = " << TMin << ", max = " << TMax << ")" << endl;
+        Sout.precision(oldPrecision);
+    }
 
     Info << "Total current (A) at " << this->zoneName_
          << ": " << Rj << endl;
