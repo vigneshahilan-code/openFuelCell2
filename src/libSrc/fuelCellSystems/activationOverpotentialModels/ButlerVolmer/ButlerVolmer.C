@@ -58,6 +58,7 @@ Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::ButlerVolmer
     (
         dict.lookupOrDefault<scalar>("maxEta", butlerVolmerDefaultMaxEta)
     ),
+    moleFractionBasis_(false),
     arrhenius_(dict.found("A") || dict.found("Ea")),
     A_(arrhenius_ ? dict.get<scalar>("A") : 0),
     Ea_(arrhenius_ ? dict.get<scalar>("Ea") : 0)
@@ -74,6 +75,24 @@ Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::ButlerVolmer
         FatalErrorInFunction
             << "maxEta must be positive, got " << maxEta_
             << exit(FatalError);
+    }
+
+    const word basis
+    (
+        dict.lookupOrDefault<word>("activityBasis", "concentration")
+    );
+    if (basis == "moleFraction")
+    {
+        moleFractionBasis_ = true;
+        Info<< "ButlerVolmer at " << this->zoneName_
+            << ": activityBasis moleFraction (a = X^ksi, cRef not read)"
+            << endl;
+    }
+    else if (basis != "concentration")
+    {
+        FatalIOErrorInFunction(dict)
+            << "activityBasis must be concentration or moleFraction, got "
+            << basis << exit(FatalIOError);
     }
 
     if (arrhenius_)
@@ -190,11 +209,18 @@ void Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::correct()
             const dictionary& dict0 = iter().dict();
 
             scalar ksi = readScalar(dict0.lookup("ksi"));
-            scalar cRef = readScalar(dict0.lookup("cRef"));
 
             const scalarField& X = this->phase_.X(name);
 
-            coeff *= Foam::pow(X*rho/W/cRef, ksi);
+            if (moleFractionBasis_)
+            {
+                coeff *= Foam::pow(X, ksi);
+            }
+            else
+            {
+                scalar cRef = readScalar(dict0.lookup("cRef"));
+                coeff *= Foam::pow(X*rho/W/cRef, ksi);
+            }
         }
     }
 

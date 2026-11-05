@@ -53,6 +53,15 @@ Description
     and the j0 entry is ignored (it is still read by the base class).
     j, jPrime and jSource use the same local j0.
 
+    Optional activity basis (default concentration, the upstream form):
+    \table
+        Property      | Description                          | Required | Default
+        activityBasis | concentration or moleFraction        | no       | concentration
+    \endtable
+
+    concentration: a_i = X_i rho/W / cRef_i (cRef read per species).
+    moleFraction:  a_i = X_i, as in ChangJaffe (cRef not read).
+
 SourceFiles
     ButlerVolmer.C
 
@@ -100,6 +109,9 @@ class ButlerVolmer
         //  A real cell never exceeds a few volts of activation overpotential, so
         //  this bound is inactive for any converged solution.
         scalar maxEta_;
+
+        //- Activity basis: false = concentration (default), true = moleFraction
+        bool moleFractionBasis_;
 
         //- Arrhenius j0 active (A and Ea given)
         Switch arrhenius_;
