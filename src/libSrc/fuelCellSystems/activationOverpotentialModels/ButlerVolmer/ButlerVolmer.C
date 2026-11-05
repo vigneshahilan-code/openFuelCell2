@@ -57,7 +57,10 @@ Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::ButlerVolmer
     maxEta_
     (
         dict.lookupOrDefault<scalar>("maxEta", butlerVolmerDefaultMaxEta)
-    )
+    ),
+    arrhenius_(dict.found("A") || dict.found("Ea")),
+    A_(arrhenius_ ? dict.get<scalar>("A") : 0),
+    Ea_(arrhenius_ ? dict.get<scalar>("Ea") : 0)
 {
     if (maxExpArg_ <= 0)
     {
@@ -71,6 +74,21 @@ Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::ButlerVolmer
         FatalErrorInFunction
             << "maxEta must be positive, got " << maxEta_
             << exit(FatalError);
+    }
+
+    if (arrhenius_)
+    {
+        if (A_ <= 0)
+        {
+            FatalIOErrorInFunction(dict)
+                << "A must be positive, got " << A_
+                << exit(FatalIOError);
+        }
+
+        Info<< "ButlerVolmer at " << this->zoneName_
+            << ": Arrhenius j0 = A*T*exp(-Ea/(R*T)), A = " << A_
+            << " A/(m3 K), Ea = " << Ea_ << " J/mol, R = " << Rgas
+            << " J/(mol K); j0 entry ignored" << endl;
     }
 }
 
@@ -197,6 +215,13 @@ void Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::correct()
     //  this call, and the largest unclipped magnitude seen. A non-zero count
     //  means the electrochemical coupling is being driven outside its
     //  converged range; it is reported so the clamp is never silent.
+    //- Arrhenius j0: range over the catalyst cells, logged per call
+    const scalar j0Const = this->j0_.value();
+    scalar j0Min(GREAT);
+    scalar j0Max(-GREAT);
+    scalar TMin(GREAT);
+    scalar TMax(-GREAT);
+
     label nClippedLocal = 0;
     label nClipped = 0;
     scalar maxExpArgSeen = 0;
@@ -227,8 +252,20 @@ void Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::correct()
             eta[fluidId] = Foam::sign(eta[fluidId])*maxEta_;
         }
 
+        //- Exchange current: constant, or Arrhenius in the local T.
+        //- j, jPrime and jSource below use this same j0.
+        scalar j0 = j0Const;
+        if (arrhenius_)
+        {
+            j0 = A_*T[fluidId]*Foam::exp(-Ea_/(Rgas*T[fluidId]));
+            j0Min = Foam::min(j0Min, j0);
+            j0Max = Foam::max(j0Max, j0);
+            TMin = Foam::min(TMin, T[fluidId]);
+            TMax = Foam::max(TMax, T[fluidId]);
+        }
+
         const scalar prefactor =
-            this->j0_.value()
+            j0
            *coeff[fluidId]
            *Foam::pow(s[fluidId], this->gamma_);
         // Boltzmann exponents, bounded by maxExpArg_. The argument is
@@ -307,6 +344,20 @@ void Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::correct()
             << " > maxExpArg = " << maxExpArg_ << ')'
             << ". The current density is saturated and the electrochemical"
             << " coupling has not converged." << endl;
+    }
+
+    if (arrhenius_)
+    {
+        reduce(j0Min, minOp<scalar>());
+        reduce(j0Max, maxOp<scalar>());
+        reduce(TMin, minOp<scalar>());
+        reduce(TMax, maxOp<scalar>());
+
+        const int oldPrecision = Sout.precision(10);
+        Info<< "Arrhenius j0 at " << this->zoneName_
+            << ": min = " << j0Min << ", max = " << j0Max
+            << " (T min = " << TMin << ", max = " << TMax << ")" << endl;
+        Sout.precision(oldPrecision);
     }
 
     Info << "Total current (A) at " << this->zoneName_

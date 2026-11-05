@@ -39,6 +39,20 @@ Description
         \right)
     \f]
 
+    Optional Arrhenius exchange current (both keys or neither):
+    \table
+        Property | Description                              | Required | Default
+        A        | Pre-exponential factor [A/(m3 K)]        | no       | -
+        Ea       | Activation energy [J/mol]                | no       | -
+    \endtable
+
+    When given, j0 is evaluated per cell from the local temperature,
+    \f[
+        j_0 = A\,T \exp(-E_a/(R T))
+    \f]
+    and the j0 entry is ignored (it is still read by the base class).
+    j, jPrime and jSource use the same local j0.
+
 SourceFiles
     ButlerVolmer.C
 
@@ -86,6 +100,15 @@ class ButlerVolmer
         //  A real cell never exceeds a few volts of activation overpotential, so
         //  this bound is inactive for any converged solution.
         scalar maxEta_;
+
+        //- Arrhenius j0 active (A and Ea given)
+        Switch arrhenius_;
+
+        //- Pre-exponential factor [A/(m3 K)]
+        scalar A_;
+
+        //- Activation energy [J/mol]
+        scalar Ea_;
 
 
 public:
