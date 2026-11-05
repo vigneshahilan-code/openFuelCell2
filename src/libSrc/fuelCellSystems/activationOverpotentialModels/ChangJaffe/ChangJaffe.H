@@ -49,7 +49,7 @@ Description
     \f]
     and the j0 entry is ignored (it is still read by the base class).
     jPrime and jSource use the same local j0. The temperature derivative
-    of j0 is not included in dQdotdT.
+    of j0 enters dQdotdT only with includeDj0dT on (default off).
 
     Read more:
     \vartable
@@ -115,6 +115,9 @@ public:
     // Member Functions
 
         virtual void correct();
+
+        //- d ln(j0)/dT [1/K]; zero without the Arrhenius keys
+        virtual scalar dlnj0dT(const scalar T) const;
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

@@ -390,4 +390,18 @@ void Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::correct()
          << ": " << Rj << endl;
 }
 
+template<class Thermo>
+Foam::scalar
+Foam::activationOverpotentialModels::ButlerVolmer<Thermo>::dlnj0dT
+(
+    const scalar T
+) const
+{
+    if (!arrhenius_)
+    {
+        return 0;
+    }
+    return 1.0/T + Ea_/(Rgas*T*T);
+}
+
 // ************************************************************************* //

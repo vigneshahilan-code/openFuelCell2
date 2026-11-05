@@ -113,6 +113,11 @@ protected:
         //- A/cm3
         volScalarField j_;
 
+        //- Include the temperature derivative of an Arrhenius j0 in
+        //  dQdotdT (default false: upstream linearisation unchanged).
+        //  Matters only when the energy equation is solved.
+        Switch includeDj0dT_;
+
         //- Create nernst model
         void createNernst();
 
@@ -232,6 +237,13 @@ public:
 
         //- Temperature derivative of the heat source (for linearization)
         virtual tmp<volScalarField> dQdotdT() const;
+
+        //- d ln(j0)/dT [1/K] at temperature T; zero unless the model has a
+        //  temperature-dependent j0. Used by dQdotdT when includeDj0dT is on.
+        virtual scalar dlnj0dT(const scalar) const
+        {
+            return 0;
+        }
 
         //- Update
         virtual void correct() = 0;

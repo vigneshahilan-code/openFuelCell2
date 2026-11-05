@@ -251,4 +251,19 @@ void Foam::activationOverpotentialModels::ChangJaffe<Thermo>::correct()
          << ": " << Rj << endl;
 }
 
+template<class Thermo>
+Foam::scalar
+Foam::activationOverpotentialModels::ChangJaffe<Thermo>::dlnj0dT
+(
+    const scalar T
+) const
+{
+    if (!arrhenius_)
+    {
+        return 0;
+    }
+    const scalar R = constant::physicoChemical::R.value();
+    return Ea_/(R*T*T);
+}
+
 // ************************************************************************* //

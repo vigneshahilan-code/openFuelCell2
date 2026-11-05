@@ -142,6 +142,9 @@ public:
     // Member Functions
 
         virtual void correct();
+
+        //- d ln(j0)/dT [1/K]; zero without the Arrhenius keys
+        virtual scalar dlnj0dT(const scalar T) const;
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

@@ -128,8 +128,16 @@ Foam::activationOverpotentialModel::activationOverpotentialModel
             dimCurrent/dimVolume,
             0.0
         )
-    )
-{}
+    ),
+    includeDj0dT_(dict_.lookupOrDefault<Switch>("includeDj0dT", false))
+{
+    if (includeDj0dT_)
+    {
+        Info<< "Activation model at " << zoneName_
+            << ": includeDj0dT on, dQdotdT += (d ln j0/dT) j"
+            << " (sign eta - T dS/(|n| F)); zero for a constant j0" << endl;
+    }
+}
 
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
@@ -238,6 +246,27 @@ Foam::activationOverpotentialModel::dQdotdT() const
 
         q.ref()[fluidId] =
           - j[fluidId]*nernst_->deltaS()[fluidId]/mag(n)/F;
+    }
+
+    if (includeDj0dT_)
+    {
+        //- d(Qdot)/dT through j0 at fixed eta:
+        //  Qdot = j (sign eta - T dS/(|n| F)), dj/dT = (d ln j0/dT) j
+        const scalarField& T = phase_.thermo().T();
+        const scalarField& eta = eta_;
+        const scalar sign = n/mag(n);
+
+        forAll(cells, cellI)
+        {
+            label fluidId = cells[cellI];
+
+            q.ref()[fluidId] +=
+                dlnj0dT(T[fluidId])*j[fluidId]
+               *(
+                    sign*eta[fluidId]
+                  - T[fluidId]*nernst_->deltaS()[fluidId]/mag(n)/F
+                );
+        }
     }
 
     return q;
