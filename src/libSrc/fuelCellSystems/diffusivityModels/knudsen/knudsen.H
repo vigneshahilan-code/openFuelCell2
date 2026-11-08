@@ -96,8 +96,15 @@ protected:
         //- the molecular weight
         const dimensionedScalar MW_;
 
+        //- coefficient of D = coeff*dPore*sqrt(T/MW) (optional key
+        //  knudsenCoefficient; default 48.5, the original constant)
+        const scalar coeff_;
+
 
 public:
+
+    //- Default coefficient (original constant, Geankoplis)
+    static constexpr scalar defaultCoeff = 48.5;
 
     //- Runtime type information
     TypeName("knudsen");
@@ -122,7 +129,8 @@ public:
             scalarField& diff,
             word Tname,
             const dimensionedScalar& dPore,
-            const dimensionedScalar& MW
+            const dimensionedScalar& MW,
+            scalar coeff = defaultCoeff
         );
 
 

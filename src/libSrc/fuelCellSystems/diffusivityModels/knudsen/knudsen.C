@@ -54,7 +54,8 @@ Foam::diffusivityModels::knudsen::knudsen
     diffusivityModel(name, mesh, diff, dict),
     Tname_(dict_.lookup("Tname")),
     dPore_(dict_.get<dimensionedScalar>("dPore")),
-    MW_(dict_.get<dimensionedScalar>("MW"))
+    MW_(dict_.get<dimensionedScalar>("MW")),
+    coeff_(dict_.getOrDefault<scalar>("knudsenCoefficient", defaultCoeff))
 {}
 
 
@@ -65,13 +66,15 @@ Foam::diffusivityModels::knudsen::knudsen
     scalarField& diff,
     word Tname,
     const dimensionedScalar& dPore,
-    const dimensionedScalar& MW
+    const dimensionedScalar& MW,
+    scalar coeff
 )
 :
     diffusivityModel(name, mesh, diff),
     Tname_(Tname),
     dPore_(dPore),
-    MW_(MW)
+    MW_(MW),
+    coeff_(coeff)
 {}
 
 
@@ -109,7 +112,7 @@ void Foam::diffusivityModels::knudsen::evaluate()
     forAll(cells_, i)
     {
         diff_[cells_[i]] =
-            48.5*dPore_.value()
+            coeff_*dPore_.value()
             *Foam::sqrt(T.internalField()[cells_[i]]/MW_.value());
     }
 }

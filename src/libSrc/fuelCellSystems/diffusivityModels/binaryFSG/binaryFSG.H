@@ -76,6 +76,8 @@ SourceFiles
 #include "primitiveFieldsFwd.H"
 #include "volFieldsFwd.H"
 #include "fvMesh.H"
+#include "HashTable.H"
+#include "Switch.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -124,8 +126,32 @@ protected:
         //- species "B" FSG diffusion volume
         scalar vB_;
 
+        //- FSG coefficient in the units above (optional key fsgCoefficient,
+        //  default 1e-7: the standard Fuller form, unchanged behaviour)
+        scalar coeff_;
+
+        //- optional per-species diffusion volumes [cm^3/mol] overriding the
+        //  fsgDiffusionVolumes table (subdictionary diffusionVolumes)
+        HashTable<scalar> volumes_;
+
+        //- optional log of the evaluated diffusivity (key logDiffusivity)
+        Switch logD_;
+
+
+    // Protected member functions
+
+        //- diffusion volume of a species: override if given, else the table
+        scalar volume(const word& sp) const;
+
 
 public:
+
+    //- optional per-species volumes from dict.diffusionVolumes (fatal on
+    //  a species not in the FSG table)
+    static HashTable<scalar> readVolumes(const dictionary& dict);
+
+    //- Default FSG coefficient (standard Fuller form, p in atm)
+    static constexpr scalar defaultCoeff = 1e-7;
 
     //- Runtime type information
     TypeName("binaryFSG");
@@ -151,7 +177,9 @@ public:
             word Tname_,
             word pName_,
             word spA_,
-            word spB_
+            word spB_,
+            scalar coeff = defaultCoeff,
+            const HashTable<scalar>& volumes = HashTable<scalar>()
         );
 
 

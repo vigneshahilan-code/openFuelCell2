@@ -97,6 +97,11 @@ protected:
         //- Disallow default bitwise assignment
         void operator=(const diffusivityModel&);
 
+        //- Log the evaluated diffusivity of this zone (first cell, min, max;
+        //  12 significant digits). Called only when a model's optional
+        //  logDiffusivity switch is on.
+        void logDiffusivity(const word& modelType) const;
+
 
 public:
 

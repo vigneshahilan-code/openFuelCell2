@@ -58,12 +58,15 @@ Foam::diffusivityModels::binaryFSG::binaryFSG
     Tname_(dict_.lookup("Tname")),
     pName_(dict_.lookup("pName")),
     spA_(dict_.lookup("speciesA")),
-    spB_(dict_.lookup("speciesB"))
+    spB_(dict_.lookup("speciesB")),
+    coeff_(dict_.getOrDefault<scalar>("fsgCoefficient", defaultCoeff)),
+    volumes_(readVolumes(dict_)),
+    logD_(dict_.getOrDefault<Switch>("logDiffusivity", false))
 {
     if(fsgMolecularWeights.found(spA_))
     {
         mA_ = fsgMolecularWeights(spA_);
-        vA_ = fsgDiffusionVolumes(spA_);
+        vA_ = volume(spA_);
     }
     else
     { 
@@ -79,7 +82,7 @@ Foam::diffusivityModels::binaryFSG::binaryFSG
     if(fsgMolecularWeights.found(spB_))
     {
         mB_ = fsgMolecularWeights(spB_);
-        vB_ = fsgDiffusionVolumes(spB_);
+        vB_ = volume(spB_);
     }
     else
     { 
@@ -102,25 +105,64 @@ Foam::diffusivityModels::binaryFSG::binaryFSG
     word Tname,
     word pName,
     word spA,
-    word spB
+    word spB,
+    scalar coeff,
+    const HashTable<scalar>& volumes
 )
 :
     diffusivityModel(name, mesh, diff),
     Tname_(Tname),
     pName_(pName),
     spA_(spA),
-    spB_(spB)
+    spB_(spB),
+    coeff_(coeff),
+    volumes_(volumes),
+    logD_(false)
 {
     mA_ = fsgMolecularWeights(spA_);
-    vA_ = fsgDiffusionVolumes(spA_);
- 
+    vA_ = volume(spA_);
+
     mB_ = fsgMolecularWeights(spB_);
-    vB_ = fsgDiffusionVolumes(spB_);
+    vB_ = volume(spB_);
 }
 
 
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
+
+Foam::HashTable<Foam::scalar> Foam::diffusivityModels::binaryFSG::readVolumes
+(
+    const dictionary& dict
+)
+{
+    HashTable<scalar> volumes;
+
+    if (dict.found("diffusionVolumes"))
+    {
+        const dictionary& vd = dict.subDict("diffusionVolumes");
+
+        for (const word& sp : vd.toc())
+        {
+            if (!fsgDiffusionVolumes.found(sp))
+            {
+                FatalIOErrorInFunction(dict)
+                    << "diffusionVolumes: unknown FSG species " << sp << nl
+                    << "Valid species are :" << fsgDiffusionVolumes.toc()
+                    << exit(FatalIOError);
+            }
+            volumes.insert(sp, vd.get<scalar>(sp));
+        }
+    }
+
+    return volumes;
+}
+
+
+Foam::scalar Foam::diffusivityModels::binaryFSG::volume(const word& sp) const
+{
+    return volumes_.found(sp) ? volumes_[sp] : fsgDiffusionVolumes(sp);
+}
+
 
 void Foam::diffusivityModels::binaryFSG::setSpecies(word spA, word spB)
 {
@@ -128,10 +170,10 @@ void Foam::diffusivityModels::binaryFSG::setSpecies(word spA, word spB)
     spB_ = spB;
 
     mA_ = fsgMolecularWeights(spA_);
-    vA_ = fsgDiffusionVolumes(spA_);
+    vA_ = volume(spA_);
 
     mB_ = fsgMolecularWeights(spB_);
-    vB_ = fsgDiffusionVolumes(spB_);
+    vB_ = volume(spB_);
 }
 
 
@@ -183,9 +225,14 @@ void Foam::diffusivityModels::binaryFSG::evaluate()
     forAll(cells_, i)
     {
         diff_[cells_[i]] =
-            1e-7*pow(T[cells_[i]], 1.75)*sqrt(1/mA_ + 1/mB_)
+            coeff_*pow(T[cells_[i]], 1.75)*sqrt(1/mA_ + 1/mB_)
             /(pTot[cells_[i]]*sqr(cbrt(vA_) + cbrt(vB_)));
 
+    }
+
+    if (logD_)
+    {
+        logDiffusivity("binaryFSG");
     }
 }
 

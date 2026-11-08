@@ -27,6 +27,8 @@ License
 #include "diffusivityModel.H"
 #include "volFields.H"
 
+#include <sstream>
+
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 namespace Foam
@@ -109,6 +111,37 @@ Foam::diffusivityModel::~diffusivityModel()
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 
-// none
+void Foam::diffusivityModel::logDiffusivity(const word& modelType) const
+{
+    scalar dMin = GREAT;
+    scalar dMax = -GREAT;
+
+    for (const label celli : cells_)
+    {
+        dMin = Foam::min(dMin, diff_[celli]);
+        dMax = Foam::max(dMax, diff_[celli]);
+    }
+
+    reduce(dMin, minOp<scalar>());
+    reduce(dMax, maxOp<scalar>());
+
+    // Local stream: the global Info precision is left untouched
+    std::ostringstream os;
+    os.precision(12);
+    os  << "diffusivity " << zoneName_ << " " << modelType
+        << ": first cell " << (cells_.size() ? cells_[0] : label(-1))
+        << " D = ";
+    if (cells_.size())
+    {
+        os << diff_[cells_[0]];
+    }
+    else
+    {
+        os << "-";
+    }
+    os  << ", min = " << dMin << ", max = " << dMax;
+
+    Info<< os.str().c_str() << endl;
+}
 
 // ************************************************************************* //

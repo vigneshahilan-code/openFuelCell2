@@ -127,6 +127,23 @@ protected:
         //- pore size
         const dimensionedScalar dPore_;
 
+        //- Knudsen molar mass: false = species A (original), true = the
+        //  binary mean 2/(1/mA + 1/mB) (optional key knudsenMolarMass
+        //  speciesA | mixture)
+        bool knudsenMixture_;
+
+        //- Knudsen coefficient (optional key knudsenCoefficient)
+        scalar knudsenCoeff_;
+
+        //- FSG coefficient passed to binaryFSG (optional key fsgCoefficient)
+        scalar fsgCoeff_;
+
+        //- optional per-species diffusion volumes [cm^3/mol]
+        HashTable<scalar> volumes_;
+
+        //- optional log of the evaluated diffusivity (key logDiffusivity)
+        Switch logD_;
+
         //- switch to calculate binary or not
         //  binary might be already calculated
         //Switch doBinary_;   //must be true for multiple species ...

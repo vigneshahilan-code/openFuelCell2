@@ -63,14 +63,36 @@ Foam::diffusivityModels::porousFSG::porousFSG
     spB_(dict_.lookup("speciesB")),
     eps_(1),
     tau_(1),
-    dPore_(dict_.get<dimensionedScalar>("dPore"))
+    dPore_(dict_.get<dimensionedScalar>("dPore")),
+    knudsenMixture_(false),
+    knudsenCoeff_
+    (
+        dict_.getOrDefault<scalar>("knudsenCoefficient", knudsen::defaultCoeff)
+    ),
+    fsgCoeff_(dict_.getOrDefault<scalar>("fsgCoefficient", binaryFSG::defaultCoeff)),
+    volumes_(binaryFSG::readVolumes(dict_)),
+    logD_(dict_.getOrDefault<Switch>("logDiffusivity", false))
 {
+    // Knudsen molar mass (optional): speciesA (original) or mixture
+    const word kmm(dict_.getOrDefault<word>("knudsenMolarMass", "speciesA"));
+    if (kmm == "mixture")
+    {
+        knudsenMixture_ = true;
+    }
+    else if (kmm != "speciesA")
+    {
+        FatalIOErrorInFunction(dict_)
+            << "knudsenMolarMass " << kmm
+            << ": valid values are speciesA and mixture"
+            << exit(FatalIOError);
+    }
+
     // molecular weights and diffusion volumes
     // spA
     if(fsgMolecularWeights.found(spA_))
     {
         mA_ = fsgMolecularWeights(spA_);
-        vA_ = fsgDiffusionVolumes(spA_);
+        vA_ = volumes_.found(spA_) ? volumes_[spA_] : fsgDiffusionVolumes(spA_);
     }
     else
     {
@@ -87,7 +109,7 @@ Foam::diffusivityModels::porousFSG::porousFSG
     if(fsgMolecularWeights.found(spB_))
     {
         mB_ = fsgMolecularWeights(spB_);
-        vB_ = fsgDiffusionVolumes(spB_);
+        vB_ = volumes_.found(spB_) ? volumes_[spB_] : fsgDiffusionVolumes(spB_);
     }
     else
     {
@@ -144,10 +166,10 @@ void Foam::diffusivityModels::porousFSG::setSpecies(word spA, word spB)
     spB_ = spB;
 
     mA_ = fsgMolecularWeights(spA_);
-    vA_ = fsgDiffusionVolumes(spA_);
+    vA_ = volumes_.found(spA_) ? volumes_[spA_] : fsgDiffusionVolumes(spA_);
 
     mB_ = fsgMolecularWeights(spB_);
-    vB_ = fsgDiffusionVolumes(spB_);
+    vB_ = volumes_.found(spB_) ? volumes_[spB_] : fsgDiffusionVolumes(spB_);
 }
 
 
@@ -179,18 +201,24 @@ void Foam::diffusivityModels::porousFSG::evaluate()
         binaryFSG bfsg =
                binaryFSG(this->zoneName_, this->mesh_, this->diff_,
                          this->Tname_, this->pName_,
-                         this->spA_, this->spB_);
+                         this->spA_, this->spB_,
+                         fsgCoeff_, volumes_);
         bfsg.evaluate();
     //}
 
     // knudsen
     // -------
     scalarField diffK(diff_);
-    dimensionedScalar MW ("MW", dimensionSet(1,0,0,0,-1,0,0), mA_);
+    dimensionedScalar MW
+    (
+        "MW",
+        dimensionSet(1,0,0,0,-1,0,0),
+        knudsenMixture_ ? 2.0/(1.0/mA_ + 1.0/mB_) : mA_
+    );
 
     knudsen knud =
         knudsen(this->zoneName_, this->mesh_, diffK,
-                this->Tname_, this->dPore_, MW);
+                this->Tname_, this->dPore_, MW, knudsenCoeff_);
     knud.evaluate();
 
     //- alpha value
@@ -206,6 +234,11 @@ void Foam::diffusivityModels::porousFSG::evaluate()
           * eps_/tau_/(1/diff_[cells_[i]] + 1/diffK[cells_[i]]);
             //eps_*diff_[cells_[i]]*diffK[cells_[i]]/
             //(tau_*(diff_[cells_[i]] + diffK[cells_[i]]));
+    }
+
+    if (logD_)
+    {
+        logDiffusivity("porousFSG");
     }
 }
 
