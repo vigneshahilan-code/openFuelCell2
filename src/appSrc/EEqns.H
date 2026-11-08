@@ -21,6 +21,27 @@
     // dominance, since dQdT = -j*dS/(|n|F) is negative for water splitting) and
     // the explicit correction -dQdT*T_old is added to the source. This does not
     // alter the converged solution; it only stabilises the march towards it.
+
+    // Optional heat-source scale (B2 ramp, F4): controlDict heatSourceScale s,
+    // read every step (runTimeModifiable). Scales the whole assembled source
+    // (electrochemical + Joule; QdotCell and dQdotdTCell are rebuilt every
+    // step by mapToCell). Absent key: this block is skipped, code unchanged.
+    if (runTime.controlDict().found("heatSourceScale"))
+    {
+        const scalar heatScale =
+            runTime.controlDict().get<scalar>("heatSourceScale");
+
+        // fvMatrix stores an explicit source as -S*V
+        const scalar QBefore = -gSum(QdotCell.source());
+
+        QdotCell *= dimensionedScalar("heatSourceScale", dimless, heatScale);
+        dQdotdTCell *= heatScale;
+
+        Info<< "heatSourceScale = " << heatScale
+            << ": sum(Qdot V) " << QBefore
+            << " -> " << -gSum(QdotCell.source()) << " W" << endl;
+    }
+
     fvScalarMatrix E1Eqn
     (
         fvm::ddt(rhoCpCell, TCell)
