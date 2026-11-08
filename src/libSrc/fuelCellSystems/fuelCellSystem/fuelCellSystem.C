@@ -229,6 +229,22 @@ Foam::fuelCellSystem::fuelCellSystem
             )
         )
     );
+
+    //- Logged only when a boundary that uses the marker is present, so the
+    //- log of every other case is unchanged
+    bool usesMarker = false;
+    forAll(T_.boundaryField(), patchi)
+    {
+        if (T_.boundaryField()[patchi].type() == "furnaceCouplingTemperature")
+        {
+            usesMarker = true;
+        }
+    }
+    if (usesMarker)
+    {
+        Info<< "fuelCellSystem constructed (marker fuelCellSystemConstructed set)"
+            << endl;
+    }
 }
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //

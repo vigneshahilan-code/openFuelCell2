@@ -130,10 +130,12 @@ furnaceCouplingTemperatureFvPatchScalarField
 
 void Foam::furnaceCouplingTemperatureFvPatchScalarField::updateCoeffs()
 {
-    if (updated())
-    {
-        return;
-    }
+    // No early return on updated(): after construction every call recomputes
+    // with the current patch k, so the call made while the energy equation's
+    // matrix is assembled (after mapToCell's k remap) sets the coefficients of
+    // the T solve. phaseSystem::heatTransfer builds an empty, source-only
+    // matrix on T in mapToCell (before the remap); its call only triggers
+    // this function and supplies no coefficient (F6b, main chat ~15:55).
 
     // During fuelCellSystem construction (its Qdot_ matrix on T is built
     // before k exists) the update is deferred once per patch: no k, no
