@@ -99,6 +99,11 @@ class fuelCellSystem
         //- lists of fluid, solid, electric
         autoPtr<regionTypeList> regions_;
 
+        //- Marker registered at the end of construction (F6): boundary
+        //- conditions that need fields created by this class (e.g. k)
+        //- can tell construction from a later missing field
+        autoPtr<IOdictionary> constructedMarker_;
+
 public:
 
     // Constructors

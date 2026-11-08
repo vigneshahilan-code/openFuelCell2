@@ -78,6 +78,10 @@ class furnaceCouplingTemperatureFvPatchScalarField
         //- Patch k used for the current valueFraction (for the log)
         scalarField kUsed_;
 
+        //- Deferred updates (at most one, during fuelCellSystem
+        //  construction: k does not exist yet; see updateCoeffs)
+        label nDeferred_;
+
 
 public:
 

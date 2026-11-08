@@ -18,6 +18,7 @@ License
 #include "furnaceCouplingTemperatureFvPatchScalarField.H"
 #include "addToRunTimeSelectionTable.H"
 #include "volFields.H"
+#include "IOdictionary.H"
 
 #include <sstream>
 
@@ -35,7 +36,8 @@ furnaceCouplingTemperatureFvPatchScalarField
     Ta_(0),
     kappaName_("k"),
     log_(false),
-    kUsed_(p.size(), Zero)
+    kUsed_(p.size(), Zero),
+    nDeferred_(0)
 {
     refValue() = Zero;
     refGrad() = Zero;
@@ -51,25 +53,17 @@ furnaceCouplingTemperatureFvPatchScalarField
     const dictionary& dict
 )
 :
-    mixedFvPatchScalarField(p, iF),
+    mixedFvPatchScalarField(p, iF, dict),
     h_("h", dict, p.size()),
     Ta_(dict.get<scalar>("Ta")),
     kappaName_(dict.getOrDefault<word>("kappa", "k")),
     log_(dict.getOrDefault<Switch>("log", false)),
-    kUsed_(p.size(), Zero)
+    kUsed_(p.size(), Zero),
+    nDeferred_(0)
 {
-    refValue() = Ta_;
-    refGrad() = Zero;
-    valueFraction() = Zero;
-
-    if (dict.found("value"))
-    {
-        fvPatchScalarField::operator=(scalarField("value", dict, p.size()));
-    }
-    else
-    {
-        fvPatchScalarField::operator=(refValue());
-    }
+    // refValue, refGradient, valueFraction and value come from the dictionary
+    // (mixed dictionary constructor): they are the values held until the
+    // first computed update
 
     std::ostringstream os;
     os.precision(12);
@@ -94,7 +88,8 @@ furnaceCouplingTemperatureFvPatchScalarField
     Ta_(ptf.Ta_),
     kappaName_(ptf.kappaName_),
     log_(ptf.log_),
-    kUsed_(ptf.kUsed_, mapper)
+    kUsed_(ptf.kUsed_, mapper),
+    nDeferred_(ptf.nDeferred_)
 {}
 
 
@@ -109,7 +104,8 @@ furnaceCouplingTemperatureFvPatchScalarField
     Ta_(ptf.Ta_),
     kappaName_(ptf.kappaName_),
     log_(ptf.log_),
-    kUsed_(ptf.kUsed_)
+    kUsed_(ptf.kUsed_),
+    nDeferred_(ptf.nDeferred_)
 {}
 
 
@@ -125,7 +121,8 @@ furnaceCouplingTemperatureFvPatchScalarField
     Ta_(ptf.Ta_),
     kappaName_(ptf.kappaName_),
     log_(ptf.log_),
-    kUsed_(ptf.kUsed_)
+    kUsed_(ptf.kUsed_),
+    nDeferred_(ptf.nDeferred_)
 {}
 
 
@@ -135,6 +132,32 @@ void Foam::furnaceCouplingTemperatureFvPatchScalarField::updateCoeffs()
 {
     if (updated())
     {
+        return;
+    }
+
+    // During fuelCellSystem construction (its Qdot_ matrix on T is built
+    // before k exists) the update is deferred once per patch: no k, no
+    // coefficient, and the patch is not marked updated (no base call), so
+    // the next call computes normally. Afterwards a missing k is fatal.
+    if (!db().foundObject<IOdictionary>("fuelCellSystemConstructed"))
+    {
+        ++nDeferred_;
+        if (nDeferred_ > 1)
+        {
+            FatalErrorInFunction
+                << "furnaceCouplingTemperature " << patch().name()
+                << ": more than one update before fuelCellSystem construction"
+                << " completed" << exit(FatalError);
+        }
+
+        std::ostringstream os;
+        os.precision(12);
+        os  << "furnaceCouplingTemperature " << patch().name()
+            << ": deferred (fuelCellSystem not yet constructed), deferral n = "
+            << nDeferred_ << ", held valueFraction = "
+            << (patch().size() ? valueFraction()[0] : scalar(0))
+            << ", refValue = " << (patch().size() ? refValue()[0] : scalar(0));
+        Info<< os.str().c_str() << endl;
         return;
     }
 
@@ -170,6 +193,16 @@ void Foam::furnaceCouplingTemperatureFvPatchScalarField::updateCoeffs()
     refValue() = Ta_;
     refGrad() = Zero;
     valueFraction() = h_/(h_ + kp*delta);
+
+    if (log_ && patch().size())
+    {
+        std::ostringstream os;
+        os.precision(12);
+        os  << "furnaceCouplingTemperature " << patch().name()
+            << " update: k = " << kp[0] << ", delta = " << delta[0]
+            << ", h = " << h_[0] << ", valueFraction = " << valueFraction()[0];
+        Info<< os.str().c_str() << endl;
+    }
 
     mixedFvPatchScalarField::updateCoeffs();
 }

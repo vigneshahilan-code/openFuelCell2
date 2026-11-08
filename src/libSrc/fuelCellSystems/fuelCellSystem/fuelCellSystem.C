@@ -213,6 +213,22 @@ Foam::fuelCellSystem::fuelCellSystem
             mesh_
         )
     );
+
+    //- F6: construction complete (registry marker, nothing written)
+    constructedMarker_.reset
+    (
+        new IOdictionary
+        (
+            IOobject
+            (
+                "fuelCellSystemConstructed",
+                mesh_.time().constant(),
+                mesh_,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE
+            )
+        )
+    );
 }
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
