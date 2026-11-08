@@ -75,6 +75,44 @@ Foam::regionTypes::fluid::fluid
         Info<< "Fluid region " << name() << ": solveEnergy false,"
             << " gas temperature held at the cell temperature" << nl << endl;
     }
+
+    //- F7 (optional): Navasa per-species transport, Wilke / WMS mixing
+    if
+    (
+        dict().found("navasaTransport")
+     && dict().subDict("navasaTransport").getOrDefault<Switch>("active", false)
+    )
+    {
+        phaseModel& phase = phases_->phases()[phases_->continuous()];
+        rhoReactionThermo& thermo =
+            refCast<rhoReactionThermo>(phase.thermoRef());
+
+        navasa_.reset
+        (
+            new navasaTransport
+            (
+                name(),
+                dict().subDict("navasaTransport"),
+                thermo.composition()
+            )
+        );
+
+        applyNavasa();
+    }
+}
+
+
+// * * * * * * * * * * * * * * * Private functions  * * * * * * * * * * * * //
+
+void Foam::regionTypes::fluid::applyNavasa()
+{
+    if (!navasa_.valid())
+    {
+        return;
+    }
+
+    phaseModel& phase = phases_->phases()[phases_->continuous()];
+    navasa_->apply(refCast<rhoReactionThermo>(phase.thermoRef()));
 }
 
 
@@ -137,6 +175,11 @@ void Foam::regionTypes::fluid::correct()
     }
 
     phases_->correct();
+
+    //- F7: after the last thermo.correct() of the step (correctThermo, the
+    //- P1b reset) and after phases_->correct(); nothing later in the step
+    //- recomputes mu or alpha (correctRho only)
+    applyNavasa();
 }
 
 

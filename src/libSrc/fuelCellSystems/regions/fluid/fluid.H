@@ -44,6 +44,7 @@ SourceFiles
 #include "volFields.H"
 #include "fvMesh.H"
 #include "fixedGradientFvPatchFields.H"
+#include "navasaTransport.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -76,6 +77,13 @@ protected:
 
         //- Cell temperature mapped in mapFromCell (isothermal mode only)
         autoPtr<volScalarField> TFixed_;
+
+        //- Optional Navasa per-species transport (F7; navasaTransport in
+        //- the region dictionary, default absent)
+        autoPtr<navasaTransport> navasa_;
+
+        //- Apply navasa_ to the continuous phase thermo if active
+        void applyNavasa();
 
 
 public:

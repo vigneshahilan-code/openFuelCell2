@@ -36,6 +36,7 @@ regions/region/regionType.C
 regions/region/newRegionType.C
 regions/region/regionTypeList.C
 regions/fluid/fluid.C
+regions/fluid/navasaTransport.C
 regions/solid/solid.C
 regions/electric/electric.C
 sigmaModels/sigmaModel/sigmaModel.C
