@@ -8,3 +8,5 @@ lnInclude/
 backup/
 .validation/
 *~
+# sofc-designer: build log written by tools.foam_env build (F5)
+src/log.build
