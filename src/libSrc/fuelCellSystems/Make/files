@@ -44,6 +44,7 @@ sigmaModels/sigmaModel/sigmaModelList.C
 sigmaModels/constantSigma/constantSigma.C
 sigmaModels/lambdaSigma/lambdaSigma.C
 sigmaModels/porousSigma/porousSigma.C
+sigmaModels/generalSigma/generalSigma.C
 
 phasePair/phasePairKey/phasePairKey.C
 phasePair/phasePair/phasePair.C
