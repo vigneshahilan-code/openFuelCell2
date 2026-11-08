@@ -27,6 +27,8 @@ License
 #include "phaseSystem.H"
 #include "constants.H"
 
+#include <sstream>
+
 // * * * * * * * * * * * * * * * * Static members  * * * * * * * * * * * * * * //
 
 const Foam::scalar F = Foam::constant::physicoChemical::F.value();
@@ -129,13 +131,21 @@ Foam::activationOverpotentialModel::activationOverpotentialModel
             0.0
         )
     ),
-    includeDj0dT_(dict_.lookupOrDefault<Switch>("includeDj0dT", false))
+    includeDj0dT_(dict_.lookupOrDefault<Switch>("includeDj0dT", false)),
+    checkCell_(dict_.getOrDefault<label>("checkDQdotdT", -1))
 {
     if (includeDj0dT_)
     {
         Info<< "Activation model at " << zoneName_
             << ": includeDj0dT on, dQdotdT += (d ln j0/dT) j"
             << " (sign eta - T dS/(|n| F)); zero for a constant j0" << endl;
+    }
+    if (checkCell_ >= 0)
+    {
+        Info<< "Activation model at " << zoneName_
+            << ": checkDQdotdT at cell " << checkCell_
+            << ", central difference of j0(T) with h = " << checkStep << " K"
+            << " (eta, dS and composition frozen); log only" << endl;
     }
 }
 
@@ -267,6 +277,53 @@ Foam::activationOverpotentialModel::dQdotdT() const
                   - T[fluidId]*nernst_->deltaS()[fluidId]/mag(n)/F
                 );
         }
+    }
+
+    if (checkCell_ >= 0)
+    {
+        //- Finite-difference check of the includeDj0dT term (log only):
+        //  analytic (d ln j0/dT) j B against
+        //  [j0(T + h) - j0(T - h)]/(2 h j0(T)) j B, with B, eta, dS and the
+        //  composition frozen at T (j is proportional to j0 at fixed eta).
+        if (cells.find(checkCell_) < 0)
+        {
+            FatalErrorInFunction
+                << "checkDQdotdT cell " << checkCell_
+                << " is not in cellZone " << zoneName_
+                << exit(FatalError);
+        }
+
+        const label c = checkCell_;
+        const scalar Tc = phase_.thermo().T()[c];
+        const scalar sign = n/mag(n);
+        const scalar B =
+            sign*eta_[c] - Tc*nernst_->deltaS()[c]/mag(n)/F;
+        const scalar j0 = j0At(Tc);
+
+        std::ostringstream os;
+        os.precision(12);
+        os  << "checkDQdotdT " << zoneName_ << " cell " << c
+            << ": T = " << Tc << ", j = " << j[c] << ", B = " << B
+            << ", includeDj0dT " << (includeDj0dT_ ? "on" : "off");
+
+        if (j0 > 0)
+        {
+            const scalar h = checkStep;
+            const scalar analytic = dlnj0dT(Tc)*j[c]*B;
+            const scalar fd =
+                (j0At(Tc + h) - j0At(Tc - h))/(2*h*j0)*j[c]*B;
+
+            os  << ", analytic = " << analytic
+                << ", fd(h = " << h << " K) = " << fd
+                << ", rel = "
+                << (mag(fd) > VSMALL ? (analytic - fd)/fd : scalar(0));
+        }
+        else
+        {
+            os  << ", no Arrhenius j0: nothing to compare";
+        }
+
+        Info<< os.str().c_str() << endl;
     }
 
     return q;

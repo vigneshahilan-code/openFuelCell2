@@ -118,6 +118,9 @@ public:
 
         //- d ln(j0)/dT [1/K]; zero without the Arrhenius keys
         virtual scalar dlnj0dT(const scalar T) const;
+
+        //- Arrhenius j0 at T (the correct() formula); zero without the keys
+        virtual scalar j0At(const scalar T) const;
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

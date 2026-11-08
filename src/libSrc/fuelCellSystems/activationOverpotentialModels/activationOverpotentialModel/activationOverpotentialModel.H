@@ -118,6 +118,11 @@ protected:
         //  Matters only when the energy equation is solved.
         Switch includeDj0dT_;
 
+        //- Optional finite-difference check of the includeDj0dT term at one
+        //  fluid cell (key checkDQdotdT <cell label>; default -1 = off).
+        //  Logging only: no field or equation is changed.
+        label checkCell_;
+
         //- Create nernst model
         void createNernst();
 
@@ -244,6 +249,16 @@ public:
         {
             return 0;
         }
+
+        //- Arrhenius j0 at temperature T (zero unless the model has a
+        //  temperature-dependent j0). Used only by the checkDQdotdT log.
+        virtual scalar j0At(const scalar) const
+        {
+            return 0;
+        }
+
+        //- Step [K] of the checkDQdotdT central difference
+        static constexpr scalar checkStep = 0.1;
 
         //- Update
         virtual void correct() = 0;
