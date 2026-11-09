@@ -37,6 +37,10 @@
         QdotCell *= dimensionedScalar("heatSourceScale", dimless, heatScale);
         dQdotdTCell *= heatScale;
 
+        // F8: 12 significant digits for this block's lines (acceptance A2s
+        // compares them across runs); only printed with heatSourceScale set
+        const auto oldPrec = Info.stream().precision(12);
+
         Info<< "heatSourceScale = " << heatScale
             << ": sum(Qdot V) " << QBefore
             << " -> " << -gSum(QdotCell.source()) << " W" << endl;
@@ -49,6 +53,8 @@
         Info<< "heatSourceScale = " << heatScale
             << ": sum(QdotJoule V) " << JBefore
             << " -> " << heatScale*JBefore << " W" << endl;
+
+        Info.stream().precision(oldPrec);
     }
 
     fvScalarMatrix E1Eqn

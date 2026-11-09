@@ -476,8 +476,12 @@ void Foam::regionTypes::electric::mapToCell
         jouleHeat_->primitiveFieldRef() = heatSource.primitiveField();
         jouleHeat_->correctBoundaryConditions();
 
+        // 12 significant digits (acceptance A2s/A3 compare these values)
+        const scalar Jsum = gSum(heatSource.primitiveField()*this->V());
+        const auto oldPrec = Info.stream().precision(12);
         Info<< "Joule " << name() << " (faceBased): sum q V = "
-            << gSum(heatSource.primitiveField()*this->V()) << " W" << endl;
+            << Jsum << " W" << endl;
+        Info.stream().precision(oldPrec);
     }
 
     volScalarField heatSource0
