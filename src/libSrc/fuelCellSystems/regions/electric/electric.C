@@ -35,6 +35,10 @@ License
 
 #include "fuelCellSystem.H"
 
+#include "surfaceInterpolationScheme.H"
+#include "snGradScheme.H"
+#include "coupledFvPatch.H"
+
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
 namespace Foam
@@ -167,8 +171,59 @@ Foam::regionTypes::electric::electric
     galvanostatic_(true),
     ibar_(nullptr),
     voltage_(nullptr),
-    maxPhiStep_(0.2)
+    maxPhiStep_(0.2),
+    faceBasedJoule_(false),
+    jouleHeat_(nullptr)
 {
+    // F8 (main chat 2026-11-09 ~06:55/~08:05): read once at start-up; absent
+    // key = upstream cell-centred Joule source, code path unchanged
+    {
+        const word mode
+        (
+            this->time().controlDict().getOrDefault<word>
+            (
+                "jouleHeat",
+                "cellCentred"
+            )
+        );
+
+        if (mode == "faceBased")
+        {
+            faceBasedJoule_ = true;
+        }
+        else if (mode != "cellCentred")
+        {
+            FatalIOErrorInFunction(this->time().controlDict())
+                << "jouleHeat " << mode << " unknown; valid: cellCentred, "
+                << "faceBased" << exit(FatalIOError);
+        }
+
+        if (faceBasedJoule_)
+        {
+            Info<< "jouleHeat faceBased (" << regionName << "): Joule source "
+                << "from the two-point face current (harmonic sigma_f), "
+                << "apportioned by d/sigma" << endl;
+
+            jouleHeat_.reset
+            (
+                new volScalarField
+                (
+                    IOobject
+                    (
+                        "jouleHeat",
+                        this->time().timeName(),
+                        *this,
+                        IOobject::NO_READ,
+                        IOobject::AUTO_WRITE
+                    ),
+                    *this,
+                    dimensionedScalar(dimEnergy/dimVolume/dimTime, Zero),
+                    zeroGradientFvPatchScalarField::typeName
+                )
+            );
+        }
+    }
+
     if (dissolveOnOff_)
     {
         dissolved_ = dissolvedModel::New(*this, dict_.subDict("dissolved"));
@@ -409,8 +464,22 @@ void Foam::regionTypes::electric::mapToCell
 {
     Info << "Map " << name() << " to Cell " << nl << endl;
 
-    //- heat source
-    volScalarField heatSource = (i_ & i_)/sigmaField_;
+    //- heat source; F8: faceBased replaces the cell-centred form only when
+    //- selected (controlDict jouleHeat), otherwise the upstream expression
+    volScalarField heatSource
+    (
+        faceBasedJoule_ ? faceJouleHeat() : (i_ & i_)/sigmaField_
+    );
+
+    if (faceBasedJoule_)
+    {
+        jouleHeat_->primitiveFieldRef() = heatSource.primitiveField();
+        jouleHeat_->correctBoundaryConditions();
+
+        Info<< "Joule " << name() << " (faceBased): sum q V = "
+            << gSum(heatSource.primitiveField()*this->V()) << " W" << endl;
+    }
+
     volScalarField heatSource0
     (
         IOobject
@@ -426,6 +495,131 @@ void Foam::regionTypes::electric::mapToCell
     heatSource0.rmap(heatSource, cellMapIO_);
 
     fuelCell.Qdot() += heatSource0;
+
+    //- F8 / review of ea54274: the Joule part alone (not written; logged by
+    //- the heatSourceScale block only when heatSourceScale is present)
+    fuelCell.QdotJoule() += heatSource0;
+}
+
+
+Foam::tmp<Foam::volScalarField>
+Foam::regionTypes::electric::faceJouleHeat() const
+{
+    const fvMesh& m = *this;
+
+    // the phi matrix's own scheme: "Gauss <interpolation> <snGrad>", read as
+    // laplacianScheme reads it (finiteVolume laplacianScheme.H)
+    ITstream is(m.laplacianScheme("laplacian(sigma,phi)"));
+    is.rewind();
+    const word gauss(is);
+
+    if (gauss != "Gauss" || is.eof())
+    {
+        FatalErrorInFunction
+            << "jouleHeat faceBased (" << name() << "): laplacian(sigma,phi) "
+            << "must be 'Gauss <interpolation> <snGrad>', got "
+            << m.laplacianScheme("laplacian(sigma,phi)") << exit(FatalError);
+    }
+
+    tmp<surfaceInterpolationScheme<scalar>> interp
+    (
+        surfaceInterpolationScheme<scalar>::New(m, is)
+    );
+    tmp<fv::snGradScheme<scalar>> sng(fv::snGradScheme<scalar>::New(m, is));
+
+    // two-point face current along Sf [A] (outward on boundary faces)
+    const surfaceScalarField sigmaf(interp().interpolate(sigmaField_));
+    const surfaceScalarField F(-sigmaf*m.magSf()*sng().snGrad(phi_));
+
+    tmp<volScalarField> tq
+    (
+        new volScalarField
+        (
+            IOobject
+            (
+                "jouleHeatFace",
+                this->time().timeName(),
+                m,
+                IOobject::NO_READ,
+                IOobject::NO_WRITE,
+                IOobject::NO_REGISTER
+            ),
+            m,
+            dimensionedScalar(dimEnergy/dimVolume/dimTime, Zero),
+            zeroGradientFvPatchScalarField::typeName
+        )
+    );
+
+    // accumulate W per cell, divide by V at the end
+    scalarField& q = tq.ref().primitiveFieldRef();
+
+    const labelUList& own = m.owner();
+    const labelUList& nei = m.neighbour();
+    const volVectorField& C = m.C();
+    const surfaceVectorField& Cf = m.Cf();
+    const surfaceVectorField& Sf = m.Sf();
+    const surfaceScalarField& magSf = m.magSf();
+    const scalarField& sig = sigmaField_.primitiveField();
+    const scalarField& ph = phi_.primitiveField();
+
+    forAll(own, facei)
+    {
+        const label P = own[facei];
+        const label N = nei[facei];
+        const vector n = Sf[facei]/magSf[facei];
+        const scalar rP = mag(n & (Cf[facei] - C[P]))/sig[P];
+        const scalar rN = mag(n & (C[N] - Cf[facei]))/sig[N];
+        const scalar D = -F[facei]*(ph[N] - ph[P]);
+
+        q[P] += D*rP/(rP + rN);
+        q[N] += D*rN/(rP + rN);
+    }
+
+    forAll(F.boundaryField(), patchi)
+    {
+        const fvPatch& p = m.boundary()[patchi];
+        const fvsPatchScalarField& Fp = F.boundaryField()[patchi];
+        const fvPatchScalarField& php = phi_.boundaryField()[patchi];
+        const labelUList& fc = p.faceCells();
+
+        if (p.coupled())
+        {
+            // processor faces: own half only, neighbour from the other side
+            const scalarField phN(php.patchNeighbourField());
+            const scalarField sigN
+            (
+                sigmaField_.boundaryField()[patchi].patchNeighbourField()
+            );
+            const vectorField nf(p.nf());
+            const vectorField Cfp(p.Cf());
+            const vectorField d(p.delta());
+
+            forAll(fc, i)
+            {
+                const label P = fc[i];
+                const scalar dP = mag(nf[i] & (Cfp[i] - C[P]));
+                const scalar dN = mag(nf[i] & d[i]) - dP;
+                const scalar rP = dP/sig[P];
+                const scalar rN = dN/sigN[i];
+                const scalar D = -Fp[i]*(phN[i] - ph[P]);
+
+                q[P] += D*rP/(rP + rN);
+            }
+        }
+        else
+        {
+            // physical boundary: F (phi_P - phi_b), zero on zeroGradient
+            forAll(fc, i)
+            {
+                q[fc[i]] += Fp[i]*(ph[fc[i]] - php[i]);
+            }
+        }
+    }
+
+    q /= m.V();
+    tq.ref().correctBoundaryConditions();
+
+    return tq;
 }
 
 

@@ -106,6 +106,20 @@ Foam::fuelCellSystem::fuelCellSystem
         dimensionedScalar("zero", dimEnergy/dimVolume/dimTime/dimTemperature, 0)
     ),
 
+    QdotJoule_
+    (
+        IOobject
+        (
+            "QdotJoule",
+            mesh.time().timeName(),
+            mesh,
+            IOobject::NO_READ,
+            IOobject::NO_WRITE
+        ),
+        mesh,
+        dimensionedScalar("zero", dimEnergy/dimVolume/dimTime, 0)
+    ),
+
     k_
     (
         IOobject
@@ -287,6 +301,7 @@ void Foam::fuelCellSystem::mapToCell()
 
     Qdot_ *= 0.0;
     dQdotdT_ *= 0.0;
+    QdotJoule_ *= 0.0;
 
     Info<< "\nMap to cell \n" << endl;
 

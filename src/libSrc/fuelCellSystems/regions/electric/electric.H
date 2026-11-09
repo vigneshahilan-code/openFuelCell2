@@ -133,11 +133,23 @@ private:
         //- Maximum galvanostatic boundary-potential change per solve (V)
         scalar maxPhiStep_;
 
+        //- F8: Joule source from the two-point face current (controlDict
+        //- jouleHeat faceBased); false = upstream cell-centred (i & i)/sigma
+        bool faceBasedJoule_;
+
+        //- F8: written Joule source [W/m3], constructed only with faceBased
+        autoPtr<volScalarField> jouleHeat_;
+
         //- Solve the current Newton-linearized potential equation
         void solvePotential();
 
         //- Integrated reaction current over the controlled zone (A)
         scalar integratedCurrent() const;
+
+        //- F8: face-based Joule source [W/m3] with the phi matrix's own
+        //- laplacian(sigma,phi) interpolation and snGrad, each face's
+        //- dissipation split between its cells by half-cell resistance d/sigma
+        tmp<volScalarField> faceJouleHeat() const;
 
 public:
         TypeName("electric");

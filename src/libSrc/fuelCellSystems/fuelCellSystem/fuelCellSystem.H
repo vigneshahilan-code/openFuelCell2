@@ -78,6 +78,10 @@ class fuelCellSystem
         //- temperature derivative of the source term
         volScalarField dQdotdT_;
 
+        //- F8: Joule part of Qdot_ [W/m3] (not written; for the
+        //- heatSourceScale log only)
+        volScalarField QdotJoule_;
+
         //- thermal conductivity
         volScalarField k_;
 
@@ -181,6 +185,11 @@ public:
             volScalarField& dQdotdT()
             {
                 return dQdotdT_;
+            }
+
+            volScalarField& QdotJoule()
+            {
+                return QdotJoule_;
             }
 
             regionTypeList& regions();

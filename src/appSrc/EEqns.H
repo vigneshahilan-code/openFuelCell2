@@ -40,6 +40,15 @@
         Info<< "heatSourceScale = " << heatScale
             << ": sum(Qdot V) " << QBefore
             << " -> " << -gSum(QdotCell.source()) << " W" << endl;
+
+        // F8 (review of ea54274): the Joule part of the source above, before
+        // and after the same scale (QdotJoule is built by mapToCell)
+        const scalar JBefore =
+            gSum(fuelCell.QdotJoule().primitiveField()*mesh.V());
+
+        Info<< "heatSourceScale = " << heatScale
+            << ": sum(QdotJoule V) " << JBefore
+            << " -> " << heatScale*JBefore << " W" << endl;
     }
 
     fvScalarMatrix E1Eqn
