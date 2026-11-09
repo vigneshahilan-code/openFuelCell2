@@ -198,6 +198,17 @@ Foam::regionTypes::electric::electric
                 << "faceBased" << exit(FatalIOError);
         }
 
+        // F8 guard (main chat 2026-11-09 ~09:00): the processor-patch branch
+        // of faceJouleHeat is not validated; lifted only after A3 passes
+        if (faceBasedJoule_ && Pstream::parRun())
+        {
+            FatalErrorInFunction
+                << "jouleHeat faceBased is not validated in parallel: "
+                << "B6 prerequisite, F8 A3 (parallel = serial incl. the "
+                << "processor-patch branch) has not been run; see "
+                << "docs/decisions.md 2026-11-09 ~09:00" << exit(FatalError);
+        }
+
         if (faceBasedJoule_)
         {
             Info<< "jouleHeat faceBased (" << regionName << "): Joule source "
