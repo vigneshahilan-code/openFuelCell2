@@ -76,6 +76,18 @@ class nernstModel
         //- Reference pressure
         dimensionedScalar pRef_;
 
+protected:
+
+    // Protected data (F10, set by derived models)
+
+        //- F10: composition (mixing) entropy in deltaS (set by models that
+        //  support it; default false)
+        bool mixingEntropy_;
+
+        //- F10: the composition part of deltaS, -R sum nu_i ln max(X_i, floor)
+        //  [J/(mol K)]; zero unless mixingEntropy_
+        scalarField deltaSmix_;
+
 public:
     //- Runtime type information
     ClassName("nernstModel");
@@ -171,6 +183,18 @@ public:
         scalar residualY() const
         {
             return residualY_;
+        }
+
+        //- F10: composition entropy included in deltaS
+        bool mixingEntropy() const
+        {
+            return mixingEntropy_;
+        }
+
+        //- F10: composition part of deltaS [J/(mol K)]
+        const scalarField& deltaSmix() const
+        {
+            return deltaSmix_;
         }
 
         //- Operators

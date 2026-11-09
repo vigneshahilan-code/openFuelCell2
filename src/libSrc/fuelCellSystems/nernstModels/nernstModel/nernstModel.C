@@ -68,7 +68,9 @@ Foam::nernstModel::nernstModel
     deltaH_(nernst_.size(), 0.0),
     deltaS_(nernst_.size(), 0.0),
     residualY_(dict_.lookupOrDefault<scalar>("residualY", 1.0e-6)),
-    pRef_("pRef", dimPressure, dict)
+    pRef_("pRef", dimPressure, dict),
+    mixingEntropy_(false),
+    deltaSmix_(nernst_.size(), 0.0)
 {}
 
 

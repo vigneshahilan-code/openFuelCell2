@@ -80,6 +80,15 @@ class standard
     //- Phase 2
     const phaseModel& phase2_;
 
+    //- F10: add -R nu ln max(X, floor) to deltaS (and deltaSmix)
+    void addMixingEntropy
+    (
+        const word& name,
+        const scalarField& X,
+        const scalar stoiCoeff,
+        const scalar floor
+    );
+
 public:
     //- Runtime type information
     TypeName("standard");

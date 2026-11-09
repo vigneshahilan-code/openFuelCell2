@@ -43,7 +43,54 @@ Foam::nernstModels::standard<Thermo, OtherThermo>::standard
     NernstModel<Thermo, OtherThermo>(phase1, phase2, dict),
     phase1_(phase1),
     phase2_(phase2)
-{}
+{
+    //- F10 (sofc-designer): composition entropy in deltaS, default off
+    this->mixingEntropy_ = dict.getOrDefault<Switch>("mixingEntropy", false);
+
+    if (this->mixingEntropy_)
+    {
+        Info<< "Nernst " << this->operator()().mesh().name()
+            << ": mixingEntropy on, dS += -R sum nu_i ln max(X_i, floor)"
+            << endl;
+    }
+}
+
+
+template<class Thermo, class OtherThermo>
+void Foam::nernstModels::standard<Thermo, OtherThermo>::addMixingEntropy
+(
+    const word& name,
+    const scalarField& X,
+    const scalar stoiCoeff,
+    const scalar floor
+)
+{
+    //- F10: dS += -R nu ln max(X, floor), the same nu, X and floor as Q_rxn;
+    //  cells below the floor are counted and logged (D11), never silent
+    label nFloor = 0;
+
+    forAll(this->deltaS(), cellI)
+    {
+        if (X[cellI] < floor)
+        {
+            ++nFloor;
+        }
+
+        const scalar dSmix =
+            -Rgas*stoiCoeff*Foam::log(Foam::max(X[cellI], floor));
+
+        this->deltaS()[cellI] += dSmix;
+        this->deltaSmix_[cellI] += dSmix;
+    }
+
+    nFloor = returnReduce(nFloor, sumOp<label>());
+    if (nFloor > 0)
+    {
+        Info<< "Nernst " << this->operator()().mesh().name()
+            << " mixingEntropy: floor active in " << nFloor << " cells ("
+            << name << ")" << endl;
+    }
+}
 
 // * * * * * * * * * * * * * * * * Destructor  * * * * * * * * * * * * * * * //
 
@@ -58,6 +105,7 @@ void Foam::nernstModels::standard<Thermo, OtherThermo>::correct()
 {
     this->deltaH() *= 0.0;
     this->deltaS() *= 0.0;
+    this->deltaSmix_ = 0.0;
 
     const word water = phaseModel::water;
 
@@ -95,6 +143,11 @@ void Foam::nernstModels::standard<Thermo, OtherThermo>::correct()
             const scalarField& X = phase1_.X(nameI);
 
             Qrxn *= Foam::pow(Foam::max(X, this->residualY())*pRef, stoiCoeffI);
+
+            if (this->mixingEntropy_)
+            {
+                addMixingEntropy(nameI, X, stoiCoeffI, this->residualY());
+            }
         }
     }
 
@@ -126,6 +179,11 @@ void Foam::nernstModels::standard<Thermo, OtherThermo>::correct()
             const scalarField& X = phase1_.X(water);
 
             Qrxn *= Foam::pow(Foam::max(X, 1.0e-6)*pRef, stoiCoeffI);
+
+            if (this->mixingEntropy_)
+            {
+                addMixingEntropy(water, X, stoiCoeffI, 1.0e-6);
+            }
         }
     }
 

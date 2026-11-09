@@ -206,6 +206,30 @@ Foam::activationOverpotentialModel::Qdot() const
             /mag(nernst_->rxnList()["e"])/F);
     }
 
+    if (nernst_->mixingEntropy())
+    {
+        //- F10 log (only with mixingEntropy on): per zone sums [W]
+        const scalarField& V = fluidPhase.V();
+        scalar qRev = 0, qMix = 0, qAct = 0;
+        forAll(cells, cellI)
+        {
+            const label c = cells[cellI];
+            qRev -= j[c]*T[c]*nernst_->deltaS()[c]/mag(n)/F*V[c];
+            qMix -= j[c]*T[c]*nernst_->deltaSmix()[c]/mag(n)/F*V[c];
+            qAct += j[c]*sign*eta[c]*V[c];
+        }
+        reduce(qRev, sumOp<scalar>());
+        reduce(qMix, sumOp<scalar>());
+        reduce(qAct, sumOp<scalar>());
+
+        std::ostringstream os;
+        os.precision(12);
+        os  << "Qdot " << zoneName_ << ": sum reversible heat = " << qRev
+            << " W, composition part = " << qMix
+            << " W, sum activation heat = " << qAct << " W";
+        Info<< os.str().c_str() << endl;
+    }
+
     return q;
 }
 
