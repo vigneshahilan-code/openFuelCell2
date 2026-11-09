@@ -215,12 +215,14 @@ void Foam::furnaceCouplingTemperatureFvPatchScalarField::write
     Ostream& os
 ) const
 {
-    fvPatchField<scalar>::write(os);
+    // F6d (main chat 2026-11-09 ~11:50): the mixed write gives type,
+    // refValue, refGradient, valueFraction and value, which the dictionary
+    // constructor (mixedFvPatchScalarField(p, iF, dict)) requires on read
+    mixedFvPatchScalarField::write(os);
     h_.writeEntry("h", os);
     os.writeEntry("Ta", Ta_);
     os.writeEntry("kappa", kappaName_);
     os.writeEntry("log", log_);
-    writeEntry("value", os);
 }
 
 
