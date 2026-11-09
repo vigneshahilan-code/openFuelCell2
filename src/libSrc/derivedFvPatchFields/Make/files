@@ -49,6 +49,7 @@ alphatWallBoilingWallFunction/alphatWallBoilingWallFunctionFvPatchScalarField.C
 copiedFixedValue/copiedFixedValueFvPatchScalarField.C
 fixedMultiPhaseHeatFlux/fixedMultiPhaseHeatFluxFvPatchScalarField.C
 furnaceCouplingTemperature/furnaceCouplingTemperatureFvPatchScalarField.C
+totalFluxInlet/totalFluxInletFvPatchScalarField.C
 
 
 LIB = $(FOAM_USER_LIBBIN)/libfuelCellEulerianFvPatchFields
