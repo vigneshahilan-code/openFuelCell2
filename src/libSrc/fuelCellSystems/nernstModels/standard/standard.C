@@ -42,7 +42,8 @@ Foam::nernstModels::standard<Thermo, OtherThermo>::standard
 :
     NernstModel<Thermo, OtherThermo>(phase1, phase2, dict),
     phase1_(phase1),
-    phase2_(phase2)
+    phase2_(phase2),
+    singlePressureTerm_(dict.getOrDefault<Switch>("singlePressureTerm", false))
 {
     //- F10 (sofc-designer): composition entropy in deltaS, default off
     this->mixingEntropy_ = dict.getOrDefault<Switch>("mixingEntropy", false);
@@ -52,6 +53,13 @@ Foam::nernstModels::standard<Thermo, OtherThermo>::standard
         Info<< "Nernst " << this->operator()().mesh().name()
             << ": mixingEntropy on, dS += -R sum nu_i ln max(X_i, floor)"
             << endl;
+    }
+
+    if (singlePressureTerm_)
+    {
+        Info<< "Nernst " << this->operator()().mesh().name()
+            << ": singlePressureTerm on, Q = prod max(X_i, floor)^nu_i"
+            << " (pressure only in S(p, T))" << endl;
     }
 }
 
@@ -116,7 +124,15 @@ void Foam::nernstModels::standard<Thermo, OtherThermo>::correct()
     const scalarField& p = this->thermo_.p();
     const scalarField& T = this->thermo_.T();
 
+    //- pRef holds the dimensionless ratio p/pRef, not a pressure; set to 1 below when singlePressureTerm is on
     scalarField pRef = p/this->pRef().value();
+
+    //- F11: one factor for both quotient lines (non-water and water), so the
+    //  water branch no longer reads thermo_.p() beside otherThermo_.p()
+    if (singlePressureTerm_)
+    {
+        pRef = 1.0;
+    }
 
     forAllConstIter(HashTable<scalar>, this->rxnList(), iter)
     {

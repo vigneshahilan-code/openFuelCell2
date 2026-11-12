@@ -80,6 +80,10 @@ class standard
     //- Phase 2
     const phaseModel& phase2_;
 
+    //- F11 (sofc-designer): quotient without p/pRef, so the pressure enters
+    //  only through S(p, T) (Pstd 1e5); default false = today's double term
+    const bool singlePressureTerm_;
+
     //- F10: add -R nu ln max(X, floor) to deltaS (and deltaSmix)
     void addMixingEntropy
     (
