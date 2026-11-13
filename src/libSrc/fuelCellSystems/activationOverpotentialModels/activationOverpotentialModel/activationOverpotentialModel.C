@@ -193,7 +193,11 @@ Foam::activationOverpotentialModel::activationOverpotentialModel
             IOobject::groupName("eta", phase.mesh().name()),
             phase.mesh().time().timeName(),
             phase.mesh(),
-            IOobject::NO_READ,
+            //- F13 (FP-1): readEta true starts from a written relaxed eta
+            //  (restarts); default false = upstream (eta starts at zero)
+            dict.getOrDefault<Switch>("readEta", false)
+          ? IOobject::READ_IF_PRESENT
+          : IOobject::NO_READ,
             IOobject::AUTO_WRITE
         ),
         phase.mesh(),
@@ -240,6 +244,14 @@ Foam::activationOverpotentialModel::activationOverpotentialModel
         Info<< "Activation model at " << zoneName_
             << ": includeDj0dT on, dQdotdT += (d ln j0/dT) j"
             << " (sign eta - T dS/(|n| F)); zero for a constant j0" << endl;
+    }
+    if (dict_.getOrDefault<Switch>("readEta", false))
+    {
+        Info<< "Activation model at " << zoneName_ << ": readEta on, "
+            << eta_.name() << " read from time " << eta_.instance() << ": "
+            << (eta_.template typeHeaderOk<volScalarField>(true) ? "yes" : "no (absent, zero start)")
+            << ", min/max " << gMin(eta_.primitiveField()) << " / "
+            << gMax(eta_.primitiveField()) << endl;
     }
     checkCouplingSources_ = dict_.getOrDefault<Switch>("checkCouplingSources", false);
     if (checkCouplingSources_)
