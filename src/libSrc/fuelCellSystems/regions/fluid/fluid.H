@@ -107,6 +107,9 @@ public:
 
         virtual void correct();
 
+        //- P5: refresh the potential-coupling sources of all phases
+        virtual void correctCoupling();
+
         virtual void setRDeltaT();
 
         virtual void solve();

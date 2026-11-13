@@ -81,6 +81,22 @@ Foam::ReactingPhaseModel<BasePhaseModel, ReactionType>::Qdot() const
 
 
 template<class BasePhaseModel, class ReactionType>
+void Foam::ReactingPhaseModel<BasePhaseModel, ReactionType>::correctCoupling()
+{
+    typedef typename ReactionType::reactionThermo Thermo;
+
+    combustionModels::electroChemicalReaction<Thermo>* eta =
+        dynamic_cast<combustionModels::electroChemicalReaction<Thermo>*>
+        (&reaction_());
+
+    if (eta)
+    {
+        eta->correctCoupling();
+    }
+}
+
+
+template<class BasePhaseModel, class ReactionType>
 Foam::tmp<Foam::volScalarField>
 Foam::ReactingPhaseModel<BasePhaseModel, ReactionType>::dQdotdT() const
 {

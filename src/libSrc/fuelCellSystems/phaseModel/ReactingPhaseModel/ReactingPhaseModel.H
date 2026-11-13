@@ -81,6 +81,9 @@ public:
         //- Correct the thermodynamics
         virtual void correctThermo();
 
+        //- P5: refresh the potential-coupling sources (kinetics frozen)
+        virtual void correctCoupling();
+
         //- Return the species fraction equation
         virtual tmp<fvScalarMatrix> R(volScalarField& Yi) const;
 

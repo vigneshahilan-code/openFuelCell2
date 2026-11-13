@@ -109,6 +109,10 @@ public:
         //- Correct electroChemicalReaction rate
         virtual void correct();
 
+        //- P5: refresh the potential-coupling sources (kinetics frozen);
+        //  defined in the .C, where activationOverpotentialModel is complete
+        void correctCoupling();
+
         //- Fuel consumption rate matrix, i.e. source term for fuel equation
         virtual tmp<fvScalarMatrix> R(volScalarField& Y) const;
 

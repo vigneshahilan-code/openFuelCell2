@@ -133,6 +133,11 @@ private:
         //- Maximum galvanostatic boundary-potential change per solve (V)
         scalar maxPhiStep_;
 
+        //- P5 (FP-1 F12): while true, a galvanostatic region keeps its
+        //  terminal potential and solves once (the one-update rule: the
+        //  potential is updated once per outer pass, in the first pass)
+        bool holdControl_ = false;
+
         //- F8: Joule source from the two-point face current (controlDict
         //- jouleHeat faceBased); false = upstream cell-centred (i & i)/sigma
         bool faceBasedJoule_;
@@ -170,6 +175,12 @@ public:
 
         //- Correct fields
         virtual void correct();
+
+        //- P5 (FP-1 F12): hold or release the galvanostatic control
+        virtual void holdControl(const bool hold)
+        {
+            holdControl_ = hold;
+        }
 
         //- Set reversed delta t
         virtual void setRDeltaT();

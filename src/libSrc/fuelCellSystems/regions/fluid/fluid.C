@@ -133,6 +133,15 @@ void Foam::regionTypes::fluid::setRDeltaT()
 }
 
 
+void Foam::regionTypes::fluid::correctCoupling()
+{
+    forAll(phases_->phases(), phasei)
+    {
+        phases_->phases()[phasei].correctCoupling();
+    }
+}
+
+
 void Foam::regionTypes::fluid::correct()
 {
     phases_->correctEnergyTransport();

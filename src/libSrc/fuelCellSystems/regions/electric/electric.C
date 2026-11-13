@@ -346,7 +346,7 @@ void Foam::regionTypes::electric::solve()
 {
     Info << "\nSolve for region " << name() << ":\n" << endl;
 
-    if (control_ && galvanostatic_)
+    if (control_ && galvanostatic_ && !holdControl_)
     {
         const label patchID = boundaryMesh().findPatchID(patchName_);
 
@@ -413,7 +413,11 @@ void Foam::regionTypes::electric::solve()
         {
             const label patchID = boundaryMesh().findPatchID(patchName_);
             const scalar area = Foam::gSum(magSf().boundaryField()[patchID]);
-            Info<< "ibar: " << integratedCurrent()/area
+
+            //- P5 held pass: a different prefix, so the runner's
+            //  "ibar: ...\tvoltage: ..." parsing sees one line per outer pass
+            Info<< (holdControl_ && galvanostatic_ ? "P5 held pass, ibar: " : "ibar: ")
+                << integratedCurrent()/area
                 << '\t' << "voltage: "
                 << Foam::gAverage(phi_.boundaryField()[patchID]) << endl;
         }

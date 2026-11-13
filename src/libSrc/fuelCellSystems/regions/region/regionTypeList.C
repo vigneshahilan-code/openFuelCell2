@@ -167,6 +167,96 @@ void Foam::regionTypeList::solveElectric()
 }
 
 
+void Foam::regionTypeList::correctCoupling()
+{
+    forAll(*this, i)
+    {
+        this->operator[](i).correctCoupling();
+    }
+}
+
+
+Foam::scalar Foam::regionTypeList::correctCouplingMaxChange()
+{
+    PtrList<scalarField> before(this->size());
+
+    forAll(*this, i)
+    {
+        regionType& region = this->operator[](i);
+
+        if (region.type() == "electric")
+        {
+            before.set
+            (
+                i,
+                new scalarField
+                (
+                    region.lookupObject<volScalarField>("jSource").primitiveField()
+                )
+            );
+        }
+    }
+
+    correctCoupling();
+
+    scalar change = 0;
+
+    forAll(*this, i)
+    {
+        if (before.set(i))
+        {
+            const scalarField& now =
+                this->operator[](i).lookupObject<volScalarField>("jSource").primitiveField();
+
+            const scalar dJ = gMax(mag(now - before[i])());
+
+            //- Per electric region (user D1, packet 08:04): the anode
+            //  (electron), cathode (electron) and ion regions each logged,
+            //  so one dead electrode cannot hide behind the other
+            Info<< "P5 liveness " << this->operator[](i).name()
+                << ": max |d jSource| = " << dJ << endl;
+
+            change = max(change, dJ);
+        }
+    }
+
+    return change;
+}
+
+
+void Foam::regionTypeList::holdControl(const bool hold)
+{
+    forAll(*this, i)
+    {
+        this->operator[](i).holdControl(hold);
+    }
+}
+
+
+Foam::scalar Foam::regionTypeList::solveElectricMaxChange()
+{
+    scalar change = 0;
+
+    forAll(*this, i)
+    {
+        regionType& region = this->operator[](i);
+
+        if (region.type() == "electric")
+        {
+            const volScalarField& phi =
+                region.lookupObject<volScalarField>("phi");
+            const scalarField phiOld(phi.primitiveField());
+
+            region.solve();
+
+            change = max(change, gMax(mag(phi.primitiveField() - phiOld)()));
+        }
+    }
+
+    return change;
+}
+
+
 void Foam::regionTypeList::mapToCell
 (
     fuelCellSystem& fuelCell

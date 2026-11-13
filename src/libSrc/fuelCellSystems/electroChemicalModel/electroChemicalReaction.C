@@ -68,10 +68,20 @@ Foam::combustionModels::electroChemicalReaction<ReactionThermo>::~electroChemica
 
 // * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * * //
 template<class ReactionThermo>
+void Foam::combustionModels::electroChemicalReaction<ReactionThermo>::correctCoupling()
+{
+    eta_->correctCoupling();
+}
+
+
+template<class ReactionThermo>
 void Foam::combustionModels::electroChemicalReaction<ReactionThermo>::correct()
 {
     //- Activation overpotential model update
     eta_->correct();
+
+    //- P5 (FP-1 F12): source-form identity check, log only, default off
+    eta_->checkCouplingSources();
 
     //- Get sub regions
     //- Refer to regionType

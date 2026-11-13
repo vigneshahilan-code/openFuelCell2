@@ -184,6 +184,15 @@ public:
 
         virtual void correct() = 0;
 
+        //- P5: refresh the potential-coupling sources (default: nothing)
+        virtual void correctCoupling()
+        {}
+
+        //- P5: hold the galvanostatic control during the inner passes
+        //  (default: nothing; electric regions override)
+        virtual void holdControl(const bool)
+        {}
+
         virtual void setRDeltaT() = 0;
 
         using fvMesh::solve;

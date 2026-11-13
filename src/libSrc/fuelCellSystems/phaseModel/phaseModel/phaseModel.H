@@ -197,6 +197,11 @@ public:
         //- Correct the thermodynamics
         virtual void correctThermo();
 
+        //- P5: refresh the potential-coupling sources of an
+        //  electrochemical reaction in this phase (default: nothing)
+        virtual void correctCoupling()
+        {}
+
         //- Correct the turbulence
         virtual void correctTurbulence();
 

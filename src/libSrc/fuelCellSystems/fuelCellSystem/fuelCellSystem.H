@@ -108,6 +108,17 @@ class fuelCellSystem
         //- can tell construction from a later missing field
         autoPtr<IOdictionary> constructedMarker_;
 
+        //- P5: inner passes on the potential pair per electric solve, with
+        //  the kinetics frozen (cap; default 1 = upstream behaviour)
+        label nPotentialCorr_;
+
+        //- P5: stop the inner passes when max |delta phi| between two
+        //  passes is below this [V] (default 0: run nPotentialCorr passes)
+        scalar potentialCorrTol_;
+
+        //- P5: inner deferred-correction passes after a first electric solve
+        void potentialCorrection(const scalar firstChange);
+
 public:
 
     // Constructors

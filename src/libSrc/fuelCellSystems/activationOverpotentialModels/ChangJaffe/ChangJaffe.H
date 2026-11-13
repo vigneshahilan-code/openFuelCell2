@@ -116,6 +116,12 @@ public:
 
         virtual void correct();
 
+        //- P5: refresh the coupling sources only (kinetics frozen)
+        virtual void correctCoupling()
+        {
+            this->correctCouplingSources();
+        }
+
         //- d ln(j0)/dT [1/K]; zero without the Arrhenius keys
         virtual scalar dlnj0dT(const scalar T) const;
 

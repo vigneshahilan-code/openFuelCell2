@@ -76,6 +76,107 @@ void Foam::activationOverpotentialModel::createNernst()
     }
 }
 
+void Foam::activationOverpotentialModel::correctCouplingSources()
+{
+    if (!nernst_.valid())
+    {
+        return;
+    }
+
+    const regionType& fluidPhase =
+        region(word(regions_.subDict("fluid").lookup("name")));
+    const regionType& electronPhase =
+        region(word(regions_.subDict("electron").lookup("name")));
+    const regionType& ionPhase =
+        region(word(regions_.subDict("ion").lookup("name")));
+
+    const scalarField& SE =
+        electronPhase.lookupObject<volScalarField>(jName);
+    const scalarField& SI =
+        ionPhase.lookupObject<volScalarField>(jName);
+    const scalarField& jPrimeE =
+        electronPhase.lookupObject<volScalarField>("jPrime");
+    const scalarField& jPrimeI =
+        ionPhase.lookupObject<volScalarField>("jPrime");
+    scalarField& jSourceE = const_cast<volScalarField&>
+    (
+        electronPhase.lookupObject<volScalarField>("jSource")
+    );
+    scalarField& jSourceI = const_cast<volScalarField&>
+    (
+        ionPhase.lookupObject<volScalarField>("jSource")
+    );
+    const scalarField& phiE =
+        electronPhase.lookupObject<volScalarField>(phiName);
+    const scalarField& phiI =
+        ionPhase.lookupObject<volScalarField>(phiName);
+
+    const scalarField& eta = eta_;
+    const scalarField& nernst = nernst_()();
+
+    label znId = fluidPhase.cellZones().findZoneID(zoneName_);
+    const labelList& cells = fluidPhase.cellZones()[znId];
+
+    forAll(cells, cellI)
+    {
+        const label fluidId = cells[cellI];
+        const label electronId =
+            electronPhase.cellMap()[fluidPhase.cellMapIO()[fluidId]];
+        const label ionId =
+            ionPhase.cellMap()[fluidPhase.cellMapIO()[fluidId]];
+
+        jSourceE[electronId] =
+            SE[electronId]
+          + jPrimeE[electronId]*(phiI[ionId] + nernst[fluidId] + eta[fluidId]);
+        jSourceI[ionId] =
+            SI[ionId]
+          + jPrimeI[ionId]*(phiE[electronId] - nernst[fluidId] - eta[fluidId]);
+    }
+}
+
+
+void Foam::activationOverpotentialModel::checkCouplingSources()
+{
+    if (!checkCouplingSources_ || !nernst_.valid())
+    {
+        return;
+    }
+
+    const regionType& electronPhase =
+        region(word(regions_.subDict("electron").lookup("name")));
+    const regionType& ionPhase =
+        region(word(regions_.subDict("ion").lookup("name")));
+
+    scalarField& jSourceE = const_cast<volScalarField&>
+    (
+        electronPhase.lookupObject<volScalarField>("jSource")
+    );
+    scalarField& jSourceI = const_cast<volScalarField&>
+    (
+        ionPhase.lookupObject<volScalarField>("jSource")
+    );
+
+    //- jSource as written by correct(), at unchanged phi
+    const scalarField jE0(jSourceE);
+    const scalarField jI0(jSourceI);
+
+    correctCouplingSources();
+
+    const scalar dE = gMax(mag(jSourceE - jE0)());
+    const scalar dI = gMax(mag(jSourceI - jI0)());
+    const label nE = returnReduce(label(Foam::sum(pos(mag(jSourceE - jE0) - VSMALL))), sumOp<label>());
+    const label nI = returnReduce(label(Foam::sum(pos(mag(jSourceI - jI0) - VSMALL))), sumOp<label>());
+
+    //- leave the run exactly as correct() left it (the check is log only)
+    jSourceE = jE0;
+    jSourceI = jI0;
+
+    Info<< "P5 source-form identity " << zoneName_
+        << ": max |d jSourceE| = " << dE << ", max |d jSourceI| = " << dI
+        << ", differing cells E/I = " << nE << "/" << nI << endl;
+}
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 Foam::activationOverpotentialModel::activationOverpotentialModel
 (
@@ -139,6 +240,13 @@ Foam::activationOverpotentialModel::activationOverpotentialModel
         Info<< "Activation model at " << zoneName_
             << ": includeDj0dT on, dQdotdT += (d ln j0/dT) j"
             << " (sign eta - T dS/(|n| F)); zero for a constant j0" << endl;
+    }
+    checkCouplingSources_ = dict_.getOrDefault<Switch>("checkCouplingSources", false);
+    if (checkCouplingSources_)
+    {
+        Info<< "Activation model at " << zoneName_
+            << ": checkCouplingSources on (P5 source-form identity; log only)"
+            << endl;
     }
     if (checkCell_ >= 0)
     {

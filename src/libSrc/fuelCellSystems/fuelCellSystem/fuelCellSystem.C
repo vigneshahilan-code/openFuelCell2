@@ -217,8 +217,34 @@ Foam::fuelCellSystem::fuelCellSystem
         ),
         mesh,
         dimensionedScalar(dimVelocity*dimArea, Zero)
+    ),
+    nPotentialCorr_
+    (
+        mesh.time().controlDict().lookupOrDefault<label>("nPotentialCorr", 1)
+    ),
+    potentialCorrTol_
+    (
+        mesh.time().controlDict().lookupOrDefault<scalar>
+        (
+            "potentialCorrTol",
+            0
+        )
     )
 {
+    if (nPotentialCorr_ < 1)
+    {
+        FatalErrorInFunction
+            << "nPotentialCorr must be at least 1, got " << nPotentialCorr_
+            << exit(FatalError);
+    }
+
+    if (nPotentialCorr_ > 1)
+    {
+        Info<< "P5: up to " << nPotentialCorr_ << " potential-coupling passes"
+            << " per electric solve (kinetics frozen), tolerance "
+            << potentialCorrTol_ << " V" << endl;
+    }
+
     Info << nl << "Creating regions: " << endl;
     regions_.reset
     (
@@ -282,16 +308,65 @@ void Foam::fuelCellSystem::setRDeltaT()
 }
 
 
+void Foam::fuelCellSystem::potentialCorrection(const scalar firstChange)
+{
+    //- Deferred correction of the potential coupling: each pass rewrites
+    //  jSource from the latest potentials with eta, Nernst, J and jPrime
+    //  frozen, so at convergence the pair solves the coupled linearised
+    //  system. The outer relaxation of eta stays in correct().
+    //  Galvanostatic one-update rule (user, FP-1 plan review): the
+    //  terminal potential is set once per outer pass by the first solve;
+    //  the inner passes hold it.
+    label pass = 1;
+    scalar change = firstChange;
+
+    regions_->holdControl(true);
+
+    while (pass < nPotentialCorr_)
+    {
+        const scalar dJ = regions_->correctCouplingMaxChange();
+        change = regions_->solveElectricMaxChange();
+        ++pass;
+
+        //- Liveness (user D1): jSource must move when phi has moved
+        Info<< "P5 pass " << pass << ": max |d jSource| = " << dJ
+            << ", max |dphi| = " << change << endl;
+
+        if (change < potentialCorrTol_)
+        {
+            break;
+        }
+    }
+
+    regions_->holdControl(false);
+
+    Info<< "potential coupling: " << pass << " passes, max |dphi| = "
+        << change << endl;
+}
+
+
 void Foam::fuelCellSystem::solve()
 {
     //- solve for regions
     regions_->solve();
+
+    if (nPotentialCorr_ > 1)
+    {
+        potentialCorrection(GREAT);
+    }
 }
 
 
 void Foam::fuelCellSystem::solveElectric()
 {
-    regions_->solveElectric();
+    if (nPotentialCorr_ > 1)
+    {
+        potentialCorrection(regions_->solveElectricMaxChange());
+    }
+    else
+    {
+        regions_->solveElectric();
+    }
 }
 
 

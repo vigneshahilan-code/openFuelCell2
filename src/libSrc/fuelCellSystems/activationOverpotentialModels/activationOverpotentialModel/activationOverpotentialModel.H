@@ -123,10 +123,25 @@ protected:
         //  Logging only: no field or equation is changed.
         label checkCell_;
 
+        //- P5 (FP-1 F12, user review item 1): after correct(), check that
+        //  correctCouplingSources() reproduces jSource bit for bit; log only
+        //  (key checkCouplingSources; default false = off)
+        Switch checkCouplingSources_ = false;
+
         //- Create nernst model
         void createNernst();
 
+        //- P5: rewrite jSource of the electron and ion regions from the
+        //  current potentials, keeping eta, the Nernst field, J and jPrime
+        //  frozen (the linearisation of the last correct()). Used by
+        //  ChangJaffe and ButlerVolmer, whose jSource has this form.
+        void correctCouplingSources();
+
 public:
+
+        //- P5: the source-form identity check (does nothing unless the key
+        //  checkCouplingSources is true); called right after correct()
+        void checkCouplingSources();
     //- Runtime type information
     TypeName("activationOverpotentialModel");
 
@@ -262,6 +277,12 @@ public:
 
         //- Update
         virtual void correct() = 0;
+
+        //- P5 (nPotentialCorr > 1): refresh only the potential-coupling
+        //  sources from the latest potentials, kinetics frozen. Default:
+        //  nothing (models without this source form).
+        virtual void correctCoupling()
+        {}
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

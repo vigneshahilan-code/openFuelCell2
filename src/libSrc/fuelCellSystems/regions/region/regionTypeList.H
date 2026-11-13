@@ -114,6 +114,19 @@ public:
         //- Solve only electric regions
         void solveElectric();
 
+        //- P5: refresh the potential-coupling sources (kinetics frozen)
+        void correctCoupling();
+
+        //- P5 (FP-1 F12, user D1): correctCoupling() and the max |delta
+        //  jSource| it made over the electric regions [A/m3] (liveness)
+        scalar correctCouplingMaxChange();
+
+        //- P5: hold (true) or release the galvanostatic control
+        void holdControl(const bool hold);
+
+        //- P5: solve the electric regions and return max |delta phi| [V]
+        scalar solveElectricMaxChange();
+
         void mapToCell(fuelCellSystem&);
 
         void mapFromCell(fuelCellSystem&);
